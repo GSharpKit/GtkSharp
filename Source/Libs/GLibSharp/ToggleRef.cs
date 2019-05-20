@@ -20,25 +20,25 @@
 
 
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace GLib {
 
-	internal class ToggleRef : IDisposable {
+	internal class ToggleRef {
 
 		bool hardened;
 		IntPtr handle;
 		object reference;
 		GCHandle gch;
 
-		public ToggleRef (GLib.Object target)
+		public ToggleRef (GLib.Object target, IntPtr handle)
 		{
-			handle = target.Handle;
+			this.handle = handle;
 			gch = GCHandle.Alloc (this);
 			reference = target;
-			g_object_add_toggle_ref (target.Handle, ToggleNotifyCallback, (IntPtr) gch);
-			g_object_unref (target.Handle);
+			g_object_add_toggle_ref (handle, ToggleNotifyCallback, (IntPtr) gch);
+			if (target.owned && !(target is InitiallyUnowned))
+				g_object_unref (handle);
 		}
 
 		public IntPtr Handle {
@@ -57,21 +57,20 @@ namespace GLib {
 			}
 		}
 
-		public void Dispose ()
-		{
-			lock (PendingDestroys) {
-				PendingDestroys.Remove (this);
-			}
-			Free ();
-		}
-
-  		void Free ()
+		public void Free ()
   		{
+			//If Free is called multiple times.
+			if (Target == null)
+				return;
+
+			Target.FreeSignals ();
+
 			if (hardened)
 				g_object_unref (handle);
 			else
 				g_object_remove_toggle_ref (handle, ToggleNotifyCallback, (IntPtr) gch);
 			reference = null;
+//			Console.WriteLine ("GCHandler FREE " + handle.ToInt64());
 			gch.Free ();
 		}
 
@@ -122,37 +121,6 @@ namespace GLib {
 					toggle_notify_callback = new ToggleNotifyHandler (RefToggled);
 				return toggle_notify_callback;
 			}
-		}
-
-		static List<ToggleRef> PendingDestroys = new List<ToggleRef> ();
-		static bool idle_queued;
-
-		public void QueueUnref ()
-		{
-			lock (PendingDestroys) {
-				PendingDestroys.Add (this);
-				if (!idle_queued){
-					Timeout.Add (50, new TimeoutHandler (PerformQueuedUnrefs));
-					idle_queued = true;
-				}
-			}
-		}
-
-		static bool PerformQueuedUnrefs ()
-		{
-			ToggleRef[] references;
-
-			lock (PendingDestroys){
-				references = new ToggleRef [PendingDestroys.Count];
-				PendingDestroys.CopyTo (references, 0);
-				PendingDestroys.Clear ();
-				idle_queued = false;
-			}
-
-			foreach (ToggleRef r in references)
-				r.Free ();
-
-			return false;
 		}
 
 		delegate void d_g_object_add_toggle_ref(IntPtr raw, ToggleNotifyHandler notify_cb, IntPtr data);

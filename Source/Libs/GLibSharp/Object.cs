@@ -25,57 +25,49 @@
 namespace GLib {
 
 	using System;
+	using System.Collections;
 	using System.Collections.Generic;
 	using System.Reflection;
 	using System.Runtime.InteropServices;
 
-	public class Object : IWrapper, IDisposable {
+	public class Object : IWrapper, IDisposable
+	{
+		protected internal bool owned;
+		Hashtable data;
+		internal PointerWrapper handle;
 
-		IntPtr handle;
-		ToggleRef tref;
-		bool disposed = false;
-		static uint idx = 1;
-		static Dictionary<IntPtr, ToggleRef> Objects = new Dictionary<IntPtr, ToggleRef>();
 		static Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>> PropertiesToSet = new Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>>();
 
 		~Object ()
 		{
 			if (WarnOnFinalize)
 				Console.Error.WriteLine ("Unexpected finalization of " + GetType() + " instance.  Consider calling Dispose.");
-
-			Dispose (false);
 		}
+
+		public static bool WarnOnFinalize;
 
 		public void Dispose ()
 		{
-			if (disposed)
-				return;
-
 			Dispose (true);
-			disposed = true;
 			GC.SuppressFinalize (this);
 		}
 
 		protected virtual void Dispose (bool disposing)
 		{
-			ToggleRef tref;
-			lock (Objects) {
-				if (Objects.TryGetValue (Handle, out tref)) {
-					Objects.Remove (Handle);
-				}
-			}
-
-			handle = IntPtr.Zero;
-			if (tref == null)
+			if (handle == null)
 				return;
-			
-			if (disposing)
-				tref.Dispose ();
-			else
-				tref.QueueUnref ();
-		}
 
-		public static bool WarnOnFinalize { get; set; }
+			try
+			{
+				handle.Dispose ();
+				handle = null;
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine ("Exception while disposing a " + this + " in Gtk#");
+				throw e;
+			}
+		}
 
 		delegate IntPtr d_g_object_ref(IntPtr raw);
 		static d_g_object_ref g_object_ref = FuncLoader.LoadFunction<d_g_object_ref>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GObject), "g_object_ref"));
@@ -88,18 +80,9 @@ namespace GLib {
 			if (o == IntPtr.Zero)
 				return null;
 
-			ToggleRef toggle_ref;
-			lock (Objects) {
-				if (!Objects.TryGetValue (o, out toggle_ref)) {
-					return null;
-				}
-			}
-
-			if (toggle_ref != null) {
-				return toggle_ref.Target;
-			}
-
-			return null;
+			Object obj;
+			PointerWrapper.TryGetObject (o, out obj);
+			return obj;
 		}
 
 		public static Object GetObject(IntPtr o, bool owned_ref)
@@ -107,30 +90,19 @@ namespace GLib {
 			if (o == IntPtr.Zero)
 				return null;
 
-			Object obj = null;
+			Object obj;
 
-			ToggleRef toggle_ref;
-			lock (Objects) {
-				if (Objects.TryGetValue (o, out toggle_ref)) {
-					if (toggle_ref != null)
-						obj = toggle_ref.Target;
-				}
-			}
-
-			if (obj != null && obj.Handle == o) {
-				if (owned_ref)
-					g_object_unref (obj.Handle);
+			if (PointerWrapper.TryGetObject (o, out obj) && obj.Handle == o)
 				return obj;
-			}
 
-			if (!owned_ref)
-				g_object_ref (o);
-
-			obj = GLib.ObjectManager.CreateObject(o); 
+			obj = GLib.ObjectManager.CreateObject (o);
 			if (obj == null) {
 				g_object_unref (o);
 				return null;
 			}
+
+			if (owned_ref)
+				g_object_unref (o);
 
 			return obj;
 		}
@@ -449,13 +421,6 @@ namespace GLib {
 			g_object_class_override_property (oclass, property_id, native_name);
 		}
 
-		[Obsolete ("Use OverrideProperty(oclass,property_id,name)")]
-		public static void OverrideProperty (IntPtr declaring_class, string name)
-		{
-			OverrideProperty (declaring_class, idx, name);
-			idx++;
-		}
-
 		delegate IntPtr d_g_object_class_find_property(IntPtr klass, IntPtr name);
 		static d_g_object_class_find_property g_object_class_find_property = FuncLoader.LoadFunction<d_g_object_class_find_property>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GObject), "g_object_class_find_property"));
 
@@ -574,7 +539,7 @@ namespace GLib {
 		{
 			//this is a deprecated way of tracking a property counter,
 			//but we may still need it for backwards compatibility
-			idx = 1;
+//			idx = 1;
 
 			return new ClassInitializer (t).Init ();
 		}
@@ -618,6 +583,7 @@ namespace GLib {
 
 		protected virtual void CreateNativeObject (string[] names, GLib.Value[] vals)
 		{
+			owned = true;
 			GType gtype = LookupGType ();
 			bool is_managed_subclass = GType.IsManaged (gtype);
 			GParameter[] parms = new GParameter [is_managed_subclass ? names.Length + 1 : names.Length];
@@ -642,29 +608,19 @@ namespace GLib {
 
 		protected virtual IntPtr Raw {
 			get {
-				return handle;
+				return Handle;
 			}
 			set {
-				if (handle == value)
-					return;
+				if (handle != null) {
+					if (handle.handle == value)
+						return;
 
-				lock (Objects) {
-					if (handle != IntPtr.Zero) {
-						Objects.Remove (handle);
-						if (tref != null) {
-							tref.Dispose ();
-							tref = null;
-						}
-					}
-
-					handle = value;
-					if (value != IntPtr.Zero) {
-						tref = new ToggleRef (this);
-						Objects [value] = tref;
-					}
+					handle.Dispose ();
 				}
+
+				handle = PointerWrapper.Create (this, value);
 			}
-		}	
+		}
 
 		public static GLib.GType GType {
 			get { return GType.Object; }
@@ -678,16 +634,13 @@ namespace GLib {
 			get { return LookupGType (); }
 		}
 
-		internal ToggleRef ToggleRef {
-			get { return tref; }
-		}
-
 		public IntPtr Handle {
-			get { return handle; }
+			get { return handle != null ? handle.handle : IntPtr.Zero; }
 		}
 
 		public IntPtr OwnedHandle {
-			get { return g_object_ref (handle); }
+			get {
+				return g_object_ref (Handle); }
 		}
 
 		public void AddNotification (string property, NotifyHandler handler)
@@ -715,12 +668,11 @@ namespace GLib {
 			return Handle.GetHashCode ();
 		}
 
-		System.Collections.Hashtable data;
-		public System.Collections.Hashtable Data {
-			get { 
+		protected Hashtable Data {
+			get {
 				if (data == null)
-					data = new System.Collections.Hashtable ();
-				
+					data = new Hashtable ();
+
 				return data;
 			}
 		}
@@ -803,6 +755,16 @@ namespace GLib {
 				sig.RemoveDelegate (handler);
 		}
 
+		public void FreeSignals ()
+		{
+			if (signals != null) {
+				var copy = signals.Values;
+				signals = null;
+				foreach (Signal s in copy)
+					s.Free ();
+			}
+		}
+
 		protected static void OverrideVirtualMethod (GType gtype, string name, Delegate cb)
 		{
 			Signal.OverrideDefaultHandler (gtype, name, cb);
@@ -838,7 +800,7 @@ namespace GLib {
 
 		internal void Harden ()
 		{
-			tref.Harden ();
+			handle.tref.Harden ();
 		}
 
 		static Object ()

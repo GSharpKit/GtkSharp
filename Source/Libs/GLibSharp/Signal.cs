@@ -157,10 +157,14 @@ namespace GLib {
 
 		internal void Free ()
 		{
-			if (before_closure != null)
-				before_closure.Dispose ();
-			if (after_closure != null)
-				after_closure.Dispose ();
+			if (before_closure != null) {
+				before_closure.Dispose();
+				before_closure = null;
+			}
+			if (after_closure != null) {
+				after_closure.Dispose();
+				after_closure = null;
+			}
 			GC.SuppressFinalize (this);
 		}
 

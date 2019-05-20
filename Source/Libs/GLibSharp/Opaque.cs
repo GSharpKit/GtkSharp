@@ -38,7 +38,7 @@ namespace GLib {
 			if (o == IntPtr.Zero)
 				return null;
 
-			Opaque opaque = (Opaque)Activator.CreateInstance (type, new object[] { o });
+			Opaque opaque = FastActivator.CreateOpaque (o, type);
 			if (owned) {
 				if (opaque.owned) {
 					// The constructor took a Ref it shouldn't have, so undo it
