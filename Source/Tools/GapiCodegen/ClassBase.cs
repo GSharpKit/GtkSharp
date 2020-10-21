@@ -46,6 +46,12 @@ namespace GtkSharp.Generation {
 		private Dictionary<string, Ctor> clash_map;
 		private bool deprecated = false;
 		private bool isabstract = false;
+		public bool nameConstructors {
+			get {
+				return Elem.GetAttributeAsBoolean("name_constructors");
+			}
+		}
+
 
 		public IDictionary<string, Method> Methods {
 			get {
@@ -252,8 +258,11 @@ namespace GtkSharp.Generation {
 				var field = _fields[i];
 				next = _fields.Count > i +1 ? _fields[i + 1] : null;
 
+
 				prev = field.Generate(gen_info, "\t\t\t\t\t", prev, next, cs_parent_struct,
 						field_alignment_structures_writer);
+				if (field.IsPadding)
+					continue;
 				var union = field as UnionABIField;
 				if (union == null && gen_info.CAbiWriter != null && !field.IsBitfield) {
 					gen_info.AbiWriter.WriteLine("\t\t\tConsole.WriteLine(\"\\\"{0}.{3}\\\": \\\"\" + {1}.{2}." + info_name + ".GetFieldOffset(\"{3}\") + \"\\\"\");", structname, NS, Name, field.CName);
@@ -560,7 +569,11 @@ namespace GtkSharp.Generation {
 			clash_map = new Dictionary<string, Ctor>();
 
 			foreach (Ctor ctor in ctors) {
-				if (clash_map.ContainsKey (ctor.Signature.Types)) {
+				if (nameConstructors) {
+					ctor.IsStatic = true;
+					if (Parent != null && Parent.HasStaticCtor (ctor.StaticName))
+						ctor.Modifiers = "new ";
+				} else if (clash_map.ContainsKey (ctor.Signature.Types)) {
 					Ctor clash = clash_map [ctor.Signature.Types];
 					Ctor alter = ctor.Preferred ? clash : ctor;
 					alter.IsStatic = true;
