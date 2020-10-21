@@ -8,7 +8,7 @@
 // Copyright (c) 2013 Andres G. Aragoneses
 //
 // This program is free software; you can redistribute it and/or
-// modify it under the terms of version 2 of the Lesser GNU General 
+// modify it under the terms of version 2 of the Lesser GNU General
 // Public License as published by the Free Software Foundation.
 //
 // This program is distributed in the hope that it will be useful,
@@ -28,61 +28,15 @@ namespace GLib {
 	using System.Collections.Generic;
 	using System.Reflection;
 	using System.Runtime.InteropServices;
-	using System.Linq;
 
 	public class Object : IWrapper, IDisposable {
 
-		protected internal bool owned;
 		IntPtr handle;
 		ToggleRef tref;
 		bool disposed = false;
 		static uint idx = 1;
 		static Dictionary<IntPtr, ToggleRef> Objects = new Dictionary<IntPtr, ToggleRef>();
 		static Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>> PropertiesToSet = new Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>>();
-
-		static readonly List<long> IgnoreAddresses = new List<long> ();
-		static readonly Dictionary<long, string> ConstructionTraces = new Dictionary<long, string> ();
-
-		public static void PrintHeldObjects ()
-		{
-			Console.WriteLine ($"---- BEGIN HELD OBJECTS ({Objects.Count - IgnoreAddresses.Count}) [Total: {Objects.Count}]----:");
-			lock (Objects)
-			{
-				foreach (var obj in Objects)
-				{
-					if (IgnoreAddresses.Contains (obj.Key.ToInt64 ()))
-						continue;
-
-					Console.WriteLine (obj.Key.ToInt64 () + " -> " + obj.Value.Target.GetType ());
-					if (ConstructionTraces.ContainsKey (obj.Key.ToInt64 ()))
-						Console.WriteLine (" AT: " + ConstructionTraces[obj.Key.ToInt64 ()].Split (Environment.NewLine.ToCharArray ()).FirstOrDefault (x => x.Contains ("OpenMedicus"))); //Aggregate((x,y) => x + Environment.NewLine + y)
-				}
-			}
-
-			Console.WriteLine ($"---- END HELD OBJECTS ({Objects.Count - IgnoreAddresses.Count}) [Total: {Objects.Count}]----:");
-		}
-
-		public static void SetIgnore ()
-		{
-			IgnoreAddresses.Clear ();
-			lock (Objects)
-			{
-				foreach (var address in Objects)
-					IgnoreAddresses.Add (address.Key.ToInt64 ());
-			}
-		}
-
-		static bool traceConstruction = true;
-
-		public bool TraceConstruction
-		{
-			get => traceConstruction;
-			set
-			{
-				ConstructionTraces.Clear ();
-				traceConstruction = value;
-			}
-		}
 
 		~Object ()
 		{
@@ -111,7 +65,6 @@ namespace GLib {
 				}
 			}
 
-//			Console.WriteLine ("Disposed " + GetType() + " " + RefCount);
 			handle = IntPtr.Zero;
 			if (tref == null)
 				return;
@@ -132,16 +85,6 @@ namespace GLib {
 			signals = null;
 		}
 
-		public void FreeSignals ()
-		{
-			if (signals != null) {
-				var copy = signals.Values;
-				signals = null;
-				foreach (Signal s in copy)
-					s.Free ();
-			}
-		}
-
 		public static bool WarnOnFinalize { get; set; }
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 		delegate IntPtr d_g_object_ref(IntPtr raw);
@@ -149,7 +92,10 @@ namespace GLib {
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 		delegate void d_g_object_unref(IntPtr raw);
 		static d_g_object_unref g_object_unref = FuncLoader.LoadFunction<d_g_object_unref>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GObject), "g_object_unref"));
-		
+		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+		delegate bool d_g_object_is_floating(IntPtr raw);
+		static d_g_object_is_floating g_object_is_floating = FuncLoader.LoadFunction<d_g_object_is_floating>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GObject), "g_object_is_floating"));
+
 		public static Object TryGetObject (IntPtr o)
 		{
 			if (o == IntPtr.Zero)
@@ -190,11 +136,25 @@ namespace GLib {
 				return obj;
 			}
 
-			obj = GLib.ObjectManager.CreateObject(o); 
+			bool unexpected_owned_floating = false;
+			// If we don't get an owned reference here then we need to increase the
+			// reference count as CreateObject() always takes an owned reference.
+			// If we get a floating reference passed, however, then we assume that
+			// we actually own it and have to sink the floating reference, which
+			// will happen in the setter for Raw later.
+			if (!owned_ref && !g_object_is_floating(o))
+				g_object_ref (o);
+			else if (owned_ref && g_object_is_floating(o))
+				unexpected_owned_floating = true;
+
+			obj = GLib.ObjectManager.CreateObject(o);
 			if (obj == null) {
 				g_object_unref (o);
 				return null;
 			}
+
+			if (unexpected_owned_floating)
+				Console.Error.WriteLine ("Unexpected owned floating reference of " + obj.GetType() + " instance. This will be leaked");
 
 			return obj;
 		}
@@ -511,6 +471,7 @@ namespace GLib {
 		{
 			IntPtr native_name = GLib.Marshaller.StringToPtrGStrdup (name);
 			g_object_class_override_property (oclass, property_id, native_name);
+			GLib.Marshaller.Free (native_name);
 		}
 
 		[Obsolete ("Use OverrideProperty(oclass,property_id,name)")]
@@ -527,7 +488,14 @@ namespace GLib {
 		{
 			IntPtr gobjectclass = Marshal.ReadIntPtr (o.Handle);
 			IntPtr native_name = GLib.Marshaller.StringToPtrGStrdup (name);
-			return g_object_class_find_property (gobjectclass, native_name);
+			try
+			{
+				return g_object_class_find_property (gobjectclass, native_name);
+			}
+			finally
+			{
+				GLib.Marshaller.Free (native_name);
+			}
 		}
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 		delegate IntPtr d_g_object_interface_find_property(IntPtr klass, IntPtr name);
@@ -537,7 +505,14 @@ namespace GLib {
 		{
 			IntPtr g_iface = type.GetDefaultInterfacePtr ();
 			IntPtr native_name = GLib.Marshaller.StringToPtrGStrdup (name);
-			return g_object_interface_find_property (g_iface, native_name);
+			try
+			{
+				return g_object_interface_find_property (g_iface, native_name);
+			}
+			finally
+			{
+				GLib.Marshaller.Free (native_name);
+			}
 		}
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 		delegate void d_g_object_class_install_property(IntPtr klass, uint prop_id, IntPtr param_spec);
@@ -680,6 +655,10 @@ namespace GLib {
 		delegate IntPtr d_g_object_newv(IntPtr gtype, int n_params, GParameter[] parms);
 		static d_g_object_newv g_object_newv = FuncLoader.LoadFunction<d_g_object_newv>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GObject), "g_object_newv"));
 
+		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+		delegate void d_g_object_ref_sink(IntPtr raw);
+		static d_g_object_ref_sink g_object_ref_sink = FuncLoader.LoadFunction<d_g_object_ref_sink>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GObject), "g_object_ref_sink"));
+
 		protected virtual void CreateNativeObject (string[] names, GLib.Value[] vals)
 		{
 			GType gtype = LookupGType ();
@@ -721,6 +700,13 @@ namespace GLib {
 						}
 					}
 
+					// All references that we get here are assumed to be owned by us. If we
+					// get a floating reference then we should take ownership of it by
+					// sinking it.
+					if (value != IntPtr.Zero && g_object_is_floating(value)) {
+						g_object_ref_sink(value);
+					}
+
 					handle = value;
 					if (value != IntPtr.Zero) {
 						tref = new ToggleRef (this);
@@ -728,7 +714,7 @@ namespace GLib {
 					}
 				}
 			}
-		}	
+		}
 
 		public static GLib.GType GType {
 			get { return GType.Object; }
@@ -781,10 +767,10 @@ namespace GLib {
 
 		System.Collections.Hashtable data;
 		public System.Collections.Hashtable Data {
-			get { 
+			get {
 				if (data == null)
 					data = new System.Collections.Hashtable ();
-				
+
 				return data;
 			}
 		}

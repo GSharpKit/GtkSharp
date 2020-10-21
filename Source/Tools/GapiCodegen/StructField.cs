@@ -89,7 +89,9 @@ namespace GtkSharp.Generation {
 				string wrapped_name = SymbolTable.Table.MangleName (CName);
 				IGeneratable gen = table [CType];
 
-				if (IsArray || gen is IAccessor)
+				if (IsArray && IsNullTermArray)
+					return StudlyName + "Ptr";
+				else if (IsArray || gen is IAccessor)
 					return Access == "public" ? StudlyName : Name;
 				else if (IsBitfield)
 					return Name;
@@ -152,8 +154,8 @@ namespace GtkSharp.Generation {
 
 		public bool IsPadding {
 			get {
-				if (elem.GetAttributeAsBoolean ("is-padding"))
-					return elem.GetAttributeAsBoolean ("is-padding");
+				if (elem.GetAttributeAsBoolean ("padding"))
+					return elem.GetAttributeAsBoolean ("padding");
 
 				return (elem.GetAttribute ("access") == "private" && (
 					CName.StartsWith ("dummy") || CName.StartsWith ("padding")));
