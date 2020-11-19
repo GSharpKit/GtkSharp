@@ -37,6 +37,7 @@ namespace GLib {
 		static uint idx = 1;
 		static Dictionary<IntPtr, ToggleRef> Objects = new Dictionary<IntPtr, ToggleRef>();
 		static Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>> PropertiesToSet = new Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>>();
+		public bool TraceConstruction { get; set; }
 
 		~Object ()
 		{
@@ -140,6 +141,7 @@ namespace GLib {
 			if (obj != null && obj.Handle == o) {
 				if (owned_ref)
 					g_object_unref (obj.Handle);
+
 				return obj;
 			}
 
