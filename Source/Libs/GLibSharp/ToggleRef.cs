@@ -22,6 +22,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Linq;
 
 namespace GLib {
 
@@ -75,6 +76,9 @@ namespace GLib {
 			reference = null;
 
 			QueueGCHandleFree ();
+
+			if (GLib.Object.TraceObjectConstruction)
+				Object.ObjectConstructionTraces.RemoveAll (x => x.Item1 == handle);
 
 			handle = IntPtr.Zero;
 		}
@@ -186,7 +190,12 @@ namespace GLib {
 			}
 
 			foreach (ToggleRef r in references)
+			{
+				if (Object.TraceObjectConstruction && Object.ObjectConstructionTraces.FirstOrDefault (x => x.Item1 == r.handle).Item2 is string trace)
+					Object.QueuedFreeTraces.Add (trace);
+
 				r.Free ();
+			}
 
 			return false;
 		}

@@ -28,6 +28,7 @@ namespace GLib {
 	using System.Collections.Generic;
 	using System.Reflection;
 	using System.Runtime.InteropServices;
+	using System.Linq;
 
 	public class Object : IWrapper, IDisposable {
 
@@ -37,6 +38,9 @@ namespace GLib {
 		static uint idx = 1;
 		static Dictionary<IntPtr, ToggleRef> Objects = new Dictionary<IntPtr, ToggleRef>();
 		static Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>> PropertiesToSet = new Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>>();
+
+		public static List<(IntPtr, string)> ObjectConstructionTraces = new List<(IntPtr, string)>();
+		public static List<string> QueuedFreeTraces = new List<string>();
 
 		~Object ()
 		{
@@ -92,7 +96,37 @@ namespace GLib {
 			disposed = true;
 		}
 
+		static string[] filter = {
+			"System.Reflection",
+			"GLib.Object",
+			"GLib.Signal.Closure",
+			"System.Runtime.CompilerServices",
+			"System.Delegate.DynamicInvokeImpl",
+			"System.MulticastDelegate.DynamicInvokeImpl",
+			"System.Delegate.DynamicInvoke",
+			"GLib.SignalClosure.Invoke",
+			"GLib.SignalClosure.MarshalCallback",
+			"System.Threading.Tasks",
+			"GLib.GLibSynchronizationContext",
+			"System.Object.wrapper_native",
+			"System.Threading.ExecutionContext",
+			"Gtk.Builder.BindFields",
+			"System.RuntimeType.CreateInstanceMono",
+			"System.Activator.CreateInstance"
+		};
+
+		void TraceConstruction ()
+		{
+			if (handle == IntPtr.Zero) return;
+
+			if (GetType ().ToString() == "Gdk.Pixbuf") return;
+
+			ObjectConstructionTraces.Add ((handle, $"{GetType ()} {handle.ToInt64()} ->\n" + Environment.StackTrace.Split ('\n').Skip (2).Where (x => filter.All (y => !x.Contains (y))).Aggregate ((x, y) => x + "\n" + y) + "\n"));
+		}
+
 		public static bool WarnOnFinalize { get; set; }
+		public static bool TraceObjectConstruction { get; set; }
+
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 		delegate IntPtr d_g_object_ref(IntPtr raw);
 		static d_g_object_ref g_object_ref = FuncLoader.LoadFunction<d_g_object_ref>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GObject), "g_object_ref"));
@@ -644,6 +678,9 @@ namespace GLib {
 		protected Object (IntPtr raw)
 		{
 			Raw = raw;
+
+			if (TraceObjectConstruction)
+				TraceConstruction ();
 		}
 
 		protected Object ()
@@ -688,6 +725,10 @@ namespace GLib {
 
 			foreach (GParameter p in parms)
 				GLib.Marshaller.Free (p.name);
+
+			if (TraceObjectConstruction)
+				TraceConstruction ();
+
 		}
 
 		protected virtual IntPtr Raw {
@@ -719,6 +760,9 @@ namespace GLib {
 						tref = new ToggleRef (this);
 						Objects [value] = tref;
 					}
+
+					if (TraceObjectConstruction)
+						TraceConstruction ();
 				}
 			}
 		}
