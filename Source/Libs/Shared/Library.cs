@@ -13,5 +13,18 @@ enum Library
     Gtk,
     GtkSource,
     Webkit,
-    Gdl
+    Gdl,
+    Gst,
+    GstApp,
+    GstAudio,
+    GstBase,
+    GstController,
+    GstNet,
+    GstPbutils,
+    GstRtp,
+    GstRtsp,
+    GstSdp,
+    GstTag,
+    GstVideo,
+    GstWebRTC
 }

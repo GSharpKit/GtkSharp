@@ -6,7 +6,7 @@
         <PackageProjectUrl>https://github.com/GtkSharp/GtkSharp</PackageProjectUrl>
         <RepositoryUrl>https://github.com/GtkSharp/GtkSharp</RepositoryUrl>
         <Description>GtkWebkitSharp is a C# wrapper for the Gtk-Webkit library.</Description>
-        <PackageTags>gdl;gdlsharp;gdl-sharp;wrapper</PackageTags>
+        <PackageTags>gstreamer;gstreamer-sharp;gst;wrapper</PackageTags>
         <RootNamespace>Gdl</RootNamespace>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">

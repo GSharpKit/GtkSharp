@@ -47,6 +47,10 @@ class Settings
             new GAssembly("GdlSharp")
             {
                 Deps = new[] { "GtkSharp","GLibSharp", "GioSharp", "AtkSharp", "CairoSharp", "PangoSharp", "GdkSharp" },
+            },
+            new GAssembly("GstSharp")
+            {
+                Deps = new[] { "GtkSharp","GLibSharp", "GioSharp", "AtkSharp", "CairoSharp", "PangoSharp", "GdkSharp" },
             }
         };
     }
