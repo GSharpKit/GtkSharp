@@ -19,6 +19,9 @@
         <Compile Include="..\Shared\*.cs">
             <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
         </Compile>
+        <Compile Remove="JavaScript.Value.cs" />
+        <Compile Remove="JavascriptResult.cs" />
+        <Compile Remove="ObjectManager.cs" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\GtkSharp\GtkSharp.csproj" />
