@@ -32,7 +32,7 @@ class TargetEnvironment
             }
             else if (OperatingSystem.IsLinux())
             {
-                DotNetInstallPath = "/usr/share/dotnet";
+                DotNetInstallPath = "/usr/lib64/dotnet";
             }
             else if (OperatingSystem.IsMacOS())
             {

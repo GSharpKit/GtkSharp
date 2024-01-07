@@ -1,8 +1,8 @@
 #load CakeScripts\GAssembly.cake
 #load CakeScripts\Settings.cake
 #load CakeScripts\TargetEnvironment.cake
-#addin "Cake.FileHelpers&version=5.0.0"
-#addin "Cake.Incubator&version=7.0.0"
+#addin "Cake.FileHelpers&version=6.1.3"
+#addin "Cake.Incubator&version=8.0.0"
 
 // VARS
 
@@ -14,7 +14,8 @@ var configuration = Argument("Configuration", "Release");
 
 var msbuildsettings = new DotNetMSBuildSettings();
 var list = new List<GAssembly>();
-var supportedVersionBands = new List<string>() {"6.0.100", "6.0.200", "6.0.300", "6.0.400"};
+//var supportedVersionBands = new List<string>() {"6.0.100", "6.0.125", "6.0.200", "6.0.300", "6.0.400", "8.0.100"};
+var supportedVersionBands = new List<string>() {"8.0.100"};
 
 // TASKS
 
