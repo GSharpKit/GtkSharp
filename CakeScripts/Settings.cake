@@ -43,6 +43,10 @@ class Settings
             {
                 Deps = new[] { "GtkSharp","GLibSharp", "GioSharp", "AtkSharp", "CairoSharp", "PangoSharp", "GdkSharp" },
                 ExtraArgs = "--abi-cs-usings=Webkit,Gtk,GLib,Gdk,Atk,Pango,Cairo"
+            },
+            new GAssembly("GdlSharp")
+            {
+                Deps = new[] { "GtkSharp","GLibSharp", "GioSharp", "AtkSharp", "CairoSharp", "PangoSharp", "GdkSharp" },
             }
         };
     }

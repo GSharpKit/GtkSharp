@@ -30,4 +30,7 @@
     <ProjectReference Include="..\Libs\GtkSourceSharp\GtkSourceSharp.csproj" />
     <ProjectReference Include="..\Libs\WebkitGtkSharp\WebkitGtkSharp.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Sections\Widgets\WebviewSection.cs" />
+  </ItemGroup>
 </Project>
