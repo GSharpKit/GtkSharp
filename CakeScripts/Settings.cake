@@ -51,6 +51,10 @@ class Settings
             new GAssembly("GstSharp")
             {
                 Deps = new[] { "GtkSharp","GLibSharp", "GioSharp", "AtkSharp", "CairoSharp", "PangoSharp", "GdkSharp" },
+            },
+            new GAssembly("GtkMacIntegrationSharp")
+            {
+                Deps = new[] { "GtkSharp","GLibSharp", "GioSharp", "AtkSharp", "CairoSharp", "PangoSharp", "GdkSharp" },
             }
         };
     }

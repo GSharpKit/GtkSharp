@@ -1,0 +1,128 @@
+<?xml version="1.0"?>
+<api parser_version="2">
+  <!--
+
+        This file was automatically generated.
+        Please DO NOT MODIFY THIS FILE, modify .metadata files instead.
+
+-->
+  <namespace name="Gtk" library="Library.GtkMacIntegration">
+    <enum name="OsxApplicationAttentionType" cname="GtkosxApplicationAttentionType" type="enum">
+      <member cname="_CRITICAL_REQUEST" name="CriticalRequest" value="0_" />
+      <member cname="_INFO_REQUEST" name="InfoRequest" value="10" />
+      <member cname="_GTKOSX_APPLICATION_ATTENTION_TYPE_CRITICAL_REQUEST" name="GtkosxApplicationAttentionTypeCriticalRequest" value="0_" />
+      <member cname="_GTKOSX_APPLICATION_ATTENTION_TYPE_INFO_REQUEST" name="GtkosxApplicationAttentionTypeInfoRequest" value="10" />
+    </enum>
+    <object name="OsxApplication" cname="GtkosxApplication" parent="GObject">
+      <class_struct cname="GtkosxApplicationClass">
+        <field name="ParentClass" cname="parent_class" type="GObjectClass" />
+      </class_struct>
+      <field name="Priv" cname="priv" type="GtkosxApplicationPrivate*" />
+      <method name="AttentionRequest" cname="gtkosx_application_attention_request">
+        <return-type type="gint" />
+        <parameters>
+          <parameter type="GtkosxApplicationAttentionType" name="type" />
+        </parameters>
+      </method>
+      <method name="CancelAttentionRequest" cname="gtkosx_application_cancel_attention_request">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="gint" name="id" />
+        </parameters>
+      </method>
+      <method name="Get" cname="gtkosx_application_get" shared="true">
+        <return-type type="GtkosxApplication*" />
+      </method>
+      <method name="GetBundleId" cname="gtkosx_application_get_bundle_id" shared="true">
+        <return-type type="gchar*" />
+      </method>
+      <method name="GetBundleInfo" cname="gtkosx_application_get_bundle_info" shared="true">
+        <return-type type="gchar*" />
+        <parameters>
+          <parameter type="const-gchar*" name="key" />
+        </parameters>
+      </method>
+      <method name="GetBundlePath" cname="gtkosx_application_get_bundle_path" shared="true">
+        <return-type type="gchar*" />
+      </method>
+      <method name="GetExecutablePath" cname="gtkosx_application_get_executable_path" shared="true">
+        <return-type type="gchar*" />
+      </method>
+      <method name="GetResourcePath" cname="gtkosx_application_get_resource_path" shared="true">
+        <return-type type="gchar*" />
+      </method>
+      <method name="GetType" cname="gtkosx_application_get_type" shared="true">
+        <return-type type="GType" />
+      </method>
+      <method name="InsertAppMenuItem" cname="gtkosx_application_insert_app_menu_item">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="GtkWidget*" name="menu_item" />
+          <parameter type="gint" name="index" />
+        </parameters>
+      </method>
+      <method name="Ready" cname="gtkosx_application_ready">
+        <return-type type="void" />
+      </method>
+      <method name="SetAboutItem" cname="gtkosx_application_set_about_item">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="GtkWidget*" name="item" />
+        </parameters>
+      </method>
+      <method name="SetDockIconPixbuf" cname="gtkosx_application_set_dock_icon_pixbuf">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="GdkPixbuf*" name="pixbuf" />
+        </parameters>
+      </method>
+      <method name="SetDockIconResource" cname="gtkosx_application_set_dock_icon_resource">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="const-gchar*" name="name" />
+          <parameter type="const-gchar*" name="type" />
+          <parameter type="const-gchar*" name="subdir" />
+        </parameters>
+      </method>
+      <method name="SetDockMenu" cname="gtkosx_application_set_dock_menu">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="GtkMenuShell*" name="menu_shell" />
+        </parameters>
+      </method>
+      <method name="SetHelpMenu" cname="gtkosx_application_set_help_menu">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="GtkMenuItem*" name="menu_item" />
+        </parameters>
+      </method>
+      <method name="SetMenuBar" cname="gtkosx_application_set_menu_bar">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="GtkMenuShell*" name="menu_shell" />
+        </parameters>
+      </method>
+      <method name="SetUseQuartzAccelerators" cname="gtkosx_application_set_use_quartz_accelerators">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="gboolean" name="use_quartz_accelerators" />
+        </parameters>
+      </method>
+      <method name="SetWindowMenu" cname="gtkosx_application_set_window_menu">
+        <return-type type="void" />
+        <parameters>
+          <parameter type="GtkMenuItem*" name="menu_item" />
+        </parameters>
+      </method>
+      <method name="SyncMenubar" cname="gtkosx_application_sync_menubar">
+        <return-type type="void" />
+      </method>
+      <method name="UseQuartzAccelerators" cname="gtkosx_application_use_quartz_accelerators">
+        <return-type type="gboolean" />
+      </method>
+    </object>
+    <struct name="OsxApplicationMenuGroup" cname="GtkosxApplicationMenuGroup">
+      <field name="Items" cname="items" type="GList*" />
+    </struct>
+  </namespace>
+</api>
