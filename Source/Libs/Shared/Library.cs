@@ -26,5 +26,6 @@ enum Library
     GstSdp,
     GstTag,
     GstVideo,
-    GstWebRTC
+    GstWebRTC,
+    GtkMacIntegration
 }

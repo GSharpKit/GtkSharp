@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<gapi-parser-input>
+  <api filename="GtkMacIntegrationSharp-api.xml">
+    <library name="Library.GtkMacIntegrationSharp">
+      <namespace name="Gtk">
+        <file>gtkosxapplication.h</file>
+      </namespace>
+    </library>
+  </api>
+</gapi-parser-input>

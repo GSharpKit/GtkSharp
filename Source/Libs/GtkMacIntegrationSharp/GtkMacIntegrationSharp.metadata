@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<metadata>
+
+        <!-- Add missing signal in GtkOsxApplication -->
+        <add-node path="/api/namespace/object[@cname='GtkosxApplication']">
+
+                <signal name="NSApplicationDidBecomeActive" cname="NSApplicationDidBecomeActive" when="LAST">
+                        <return-type type="void" />
+                        <parameters>
+                                <parameter type="GtkosxApplication*" name="application" />
+                        </parameters>
+                </signal>
+
+                <signal name="NSApplicationWillResignActive" cname="NSApplicationWillResignActive" when="LAST">
+                        <return-type type="void" />
+                        <parameters>
+                                <parameter type="GtkosxApplication*" name="application" />
+                        </parameters>
+                </signal>
+                
+                <signal name="NSApplicationBlockTermination" cname="NSApplicationBlockTermination" when="LAST">
+                        <return-type type="gboolean" />
+                        <parameters>
+                                <parameter type="GtkosxApplication*" name="application" />
+                        </parameters>
+                </signal>
+                
+                <signal name="NSApplicationWillTerminate" cname="NSApplicationWillTerminate" when="LAST">
+                        <return-type type="void" />
+                        <parameters>
+                                <parameter type="GtkosxApplication*" name="application" />
+                        </parameters>
+                </signal>
+                
+                <signal name="NSApplicationOpenFile" cname="NSApplicationOpenFile" when="LAST">
+                        <return-type type="gboolean" />
+                        <parameters>
+                                <parameter type="GtkosxApplication*" name="application" />
+                                <parameter type="gchar*" name="path" />
+                        </parameters>
+                </signal>
+
+        </add-node>
+	<attr path="/api/namespace/object[@cname='GtkosxApplication']/method[@cname='gtkosx_application_use_quartz_accelerators']" name="name">GetUseQuartzAccelerators</attr>
+</metadata>
+
