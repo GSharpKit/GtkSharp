@@ -14,8 +14,12 @@ class GLibrary
 	private static Dictionary<string, IntPtr> _customlibraries;
 	private static Dictionary<Library, string[]> _libraryDefinitions;
 
+	private static string framewokePath;
+
 	static GLibrary()
 	{
+		framewokePath = Environment.GetEnvironmentVariable("GTK_SHARP_FRAMEWORK_PATH") ?? string.Empty;
+
 		_customlibraries = new Dictionary<string, IntPtr>();
 		_librariesNotFound = new HashSet<Library>();
 		_libraries = new Dictionary<Library, IntPtr>();
@@ -84,7 +88,7 @@ class GLibrary
 				ret = FuncLoader.LoadLibrary(_libraryDefinitions[library][0]);
 			}
 		} else if (FuncLoader.IsOSX) {
-			ret = FuncLoader.LoadLibrary(_libraryDefinitions[library][2]);
+			ret = FuncLoader.LoadLibrary(framewokePath + _libraryDefinitions[library][2]);
 
 			if (ret == IntPtr.Zero) {
 				ret = FuncLoader.LoadLibrary("/usr/local/lib/" + _libraryDefinitions[library][2]);
