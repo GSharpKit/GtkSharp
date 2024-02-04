@@ -8,9 +8,9 @@
 -->
   <namespace name="Gtk" library="Library.GtkMacIntegration">
     <enum name="OsxApplicationAttentionType" cname="GtkosxApplicationAttentionType" type="enum">
-      <member cname="_CRITICAL_REQUEST" name="CriticalRequest" value="0_" />
+      <member cname="_CRITICAL_REQUEST" name="CriticalRequest" value="0" />
       <member cname="_INFO_REQUEST" name="InfoRequest" value="10" />
-      <member cname="_GTKOSX_APPLICATION_ATTENTION_TYPE_CRITICAL_REQUEST" name="GtkosxApplicationAttentionTypeCriticalRequest" value="0_" />
+      <member cname="_GTKOSX_APPLICATION_ATTENTION_TYPE_CRITICAL_REQUEST" name="GtkosxApplicationAttentionTypeCriticalRequest" value="0" />
       <member cname="_GTKOSX_APPLICATION_ATTENTION_TYPE_INFO_REQUEST" name="GtkosxApplicationAttentionTypeInfoRequest" value="10" />
     </enum>
     <object name="OsxApplication" cname="GtkosxApplication" parent="GObject">
