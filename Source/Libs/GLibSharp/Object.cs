@@ -44,7 +44,7 @@ namespace GLib {
 
 		~Object ()
 		{
-			if (WarnOnFinalize)
+			if (WarnOnFinalize && GetType ().ToString() != "Gdk.Pixbuf")
 				Console.Error.WriteLine ("Unexpected finalization of " + GetType() + " instance.  Consider calling Dispose. (" + handle.ToInt64 () + ")");
 
 			Dispose (false);
@@ -1180,4 +1180,3 @@ namespace GLib {
 		// End of the ABI representation.
 	}
 }
-
