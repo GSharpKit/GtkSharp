@@ -16,6 +16,8 @@ namespace Samples
         {
             Application.Init();
 
+            Gst.Application.Init(ref args);
+
             App = new Application("org.Samples.Samples", GLib.ApplicationFlags.None);
             App.Register(GLib.Cancellable.Current);
 

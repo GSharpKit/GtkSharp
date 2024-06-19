@@ -25,6 +25,7 @@
     <ProjectReference Include="..\Libs\GdkSharp\GdkSharp.csproj" />
     <ProjectReference Include="..\Libs\GioSharp\GioSharp.csproj" />
     <ProjectReference Include="..\Libs\GLibSharp\GLibSharp.csproj" />
+    <ProjectReference Include="..\Libs\GstSharp\GstSharp.csproj" />
     <ProjectReference Include="..\Libs\GtkSharp\GtkSharp.csproj" />
     <ProjectReference Include="..\Libs\PangoSharp\PangoSharp.csproj" />
     <ProjectReference Include="..\Libs\GtkSourceSharp\GtkSourceSharp.csproj" />
