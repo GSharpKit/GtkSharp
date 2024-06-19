@@ -8,6 +8,7 @@
         <Description>GtkWebkitSharp is a C# wrapper for the Gtk-Webkit library.</Description>
         <PackageTags>gstreamer;gstreamer-sharp;gst;wrapper</PackageTags>
         <RootNamespace>Gdl</RootNamespace>
+        <LangVersion>12</LangVersion>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
         <OutputPath>..\..\..\BuildOutput\Debug</OutputPath>
