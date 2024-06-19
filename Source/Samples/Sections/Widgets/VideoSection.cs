@@ -7,7 +7,7 @@ using Gtk;
 
 namespace Samples
 {
-    [Section(ContentType = typeof(VideoBox), Category = Category.Widgets)]
+    [Section(ContentType = typeof(VideoSection), Category = Category.Widgets)]
     class VideoSection : Box
     {
         private Label label;
@@ -40,8 +40,7 @@ namespace Samples
             PackStart(button, false, false, 1);
             button.Show();
 
-            var w = (DrawingArea)gtksink.GetProperty("widget");
-            var video = new VideoBox(w);
+            var video = (Widget)gtksink["widget"];
             PackStart(video, true, true, 0);
             video.Show();
 
