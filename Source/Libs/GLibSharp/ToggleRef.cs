@@ -77,7 +77,10 @@ namespace GLib {
 
 			QueueGCHandleFree ();
 
-			if (GLib.Object.TraceObjectConstruction)
+			if (Object.IsRecordingObjectTrace)
+				Object.ObjectTraceRecordingRemoved.AddRange (Object.ObjectTraceRecordingNew.Where (x => x.Item1 == handle));
+
+			if (Object.TraceObjectConstruction)
 				Object.ObjectConstructionTraces.RemoveAll (x => x.Item1 == handle);
 
 			handle = IntPtr.Zero;

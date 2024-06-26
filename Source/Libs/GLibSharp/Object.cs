@@ -40,6 +40,12 @@ namespace GLib {
 		static Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>> PropertiesToSet = new Dictionary<IntPtr, Dictionary<IntPtr, GLib.Value>>();
 
 		public static List<(IntPtr, string)> ObjectConstructionTraces = new List<(IntPtr, string)>();
+
+		public static bool IsRecordingObjectTrace { get; set; }
+		public static List<(IntPtr, string)> ObjectTraceRecordingNew = new List<(IntPtr, string)>();
+		public static List<(IntPtr, string)> ObjectTraceRecordingRemoved = new List<(IntPtr, string)>();
+		public static List<(IntPtr, string)> ObjectTraceRecordingDiff => ObjectTraceRecordingNew.Where (x => ObjectTraceRecordingRemoved.All (y => y.Item1 != x.Item1)).ToList ();
+
 		public static List<string> QueuedFreeTraces = new List<string>();
 
 		~Object ()
@@ -118,10 +124,40 @@ namespace GLib {
 		void TraceConstruction ()
 		{
 			if (handle == IntPtr.Zero) return;
-
 			if (GetType ().ToString() == "Gdk.Pixbuf") return;
 
-			ObjectConstructionTraces.Add ((handle, $"{GetType ()} {handle.ToInt64()} ->\n" + Environment.StackTrace.Split ('\n').Skip (2).Where (x => filter.All (y => !x.Contains (y))).Aggregate ((x, y) => x + "\n" + y) + "\n"));
+			if (IsRecordingObjectTrace)
+				ObjectTraceRecordingNew.Add ((handle, $"{GetType ()} {handle.ToInt64()} ->\n" + Environment.StackTrace.Split ('\n').Skip (2).Where (x => filter.All (y => !x.Contains (y))).Aggregate ((x, y) => x + "\n" + y) + "\n"));
+
+			if (TraceObjectConstruction)
+				ObjectConstructionTraces.Add ((handle, $"{GetType ()} {handle.ToInt64()} ->\n" + Environment.StackTrace.Split ('\n').Skip (2).Where (x => filter.All (y => !x.Contains (y))).Aggregate ((x, y) => x + "\n" + y) + "\n"));
+		}
+
+		public static bool ToggleObjectTraceRecording ()
+		{
+			if (!IsRecordingObjectTrace)
+			{
+				ObjectTraceRecordingNew.Clear();
+				ObjectTraceRecordingRemoved.Clear();
+			}
+
+			return IsRecordingObjectTrace = !IsRecordingObjectTrace;
+		}
+
+		public static string ObjectTraceRecordingStatistics()
+		{
+			return $"Is currently recording: {IsRecordingObjectTrace}\n" +
+			       $"Old objects removed (existing prior to start): {ObjectTraceRecordingRemoved.Count (x => ObjectTraceRecordingNew.All (y => y.Item1 != x.Item1))}\n" +
+			       $"New objects: {ObjectTraceRecordingNew.Count}\n" +
+			       $"Transient objects (create and freed during): {ObjectTraceRecordingRemoved.Count (x => ObjectTraceRecordingNew.Any (y => y.Item1 == x.Item1))}\n" +
+			       $"Potentially leaked objects (create without freeing): {ObjectTraceRecordingDiff.Count}";
+		}
+
+		public static string ObjectTraceRecordingReport()
+		{
+			return $"Is currently recording: {IsRecordingObjectTrace}\n" +
+			       $"Potientially leaked objects: {ObjectTraceRecordingDiff.Count}\n\n" +
+			       ObjectTraceRecordingDiff.Select(x => x.Item2).Aggregate((x, y) => x + "\n" + y);
 		}
 
 		public static bool WarnOnFinalize { get; set; }
@@ -679,8 +715,7 @@ namespace GLib {
 		{
 			Raw = raw;
 
-			if (TraceObjectConstruction)
-				TraceConstruction ();
+			TraceConstruction ();
 		}
 
 		protected Object ()
@@ -726,9 +761,7 @@ namespace GLib {
 			foreach (GParameter p in parms)
 				GLib.Marshaller.Free (p.name);
 
-			if (TraceObjectConstruction)
-				TraceConstruction ();
-
+			TraceConstruction ();
 		}
 
 		protected virtual IntPtr Raw {
@@ -761,8 +794,7 @@ namespace GLib {
 						Objects [value] = tref;
 					}
 
-					if (TraceObjectConstruction)
-						TraceConstruction ();
+					TraceConstruction ();
 				}
 			}
 		}
