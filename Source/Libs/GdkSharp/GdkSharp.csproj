@@ -3,6 +3,7 @@
   <PropertyGroup>
     <Description>GdkSharp is a C# wrapper for the Gdk library.</Description>
     <PackageTags>gdk;gdksharp;gdk-sharp;wrapper</PackageTags>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   
   <ItemGroup>

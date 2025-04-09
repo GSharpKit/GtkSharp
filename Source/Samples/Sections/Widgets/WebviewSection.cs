@@ -22,15 +22,15 @@ namespace Samples
 
 		public WebviewSection()
 		{
-			if (!WebKit.Global.IsSupported) {
+			/*if (!WebKit.Global.IsSupported) {
 				AddItem(($"{nameof(WebKit.WebView)}", new Label($"{typeof(WebView).Namespace} is not suported on your OS")));
 
 				return;
-			}
+			}*/
 
 			AddItem(ShowHtml());
-			AddItem(ShowJavaScript());
-			AddItem(ShowUri());
+			//AddItem(ShowJavaScript());
+			//AddItem(ShowUri());
 
 		}
 
@@ -42,12 +42,13 @@ namespace Samples
 				Hexpand = true
 			};
 
-			webView.LoadHtml($"This is a <b>{nameof(WebView)}</b> showing html text");
+			//webView.LoadHtml();
+			webView.LoadString ($"This is a <b>{nameof(WebView)}</b> showing html text", "text/html", "utf-8", "file:///tmp");
 
 			return ($"{nameof(WebView)} show html text:", webView);
 		}
 
-		public (string, Widget) ShowJavaScript()
+		/*public (string, Widget) ShowJavaScript()
 		{
 			var webView = new WebView {
 				HeightRequest = 100,
@@ -68,20 +69,20 @@ namespace Samples
 				UserScriptInjectionTime.Start, null, null);
 
 			userContentManager.AddScript(script);
-			
+
 			var buttonClickPostMessage = $"var button = document.getElementById(\"clickMeButton\");\n" +
 			                  $"button.addEventListener(\"click\", " +
 			                  $"function() {{varmessageToPost = {{'ButtonId':'clickMeButton'}};\n" +
 			                  $"window.webkit.messageHandlers.{messageHandlerName}.postMessage(\"clickMeButton clicked\");\n}},false);";
-			
+
 			var script2 = new UserScript(
 				source: buttonClickPostMessage,
 				UserContentInjectedFrames.AllFrames,
 				UserScriptInjectionTime.End, null, null);
-			
-			
+
+
 			userContentManager.AddScript(script2);
-			
+
 			userContentManager.RegisterScriptMessageHandler(messageHandlerName);
 
 			userContentManager.ScriptMessageReceived += (o, args) => {
@@ -138,7 +139,7 @@ namespace Samples
 			webView.LoadUri("https://github.com/GtkSharp/GtkSharp#readme");
 
 			return ($"{nameof(WebView)} show uri:", webView);
-		}
+		}*/
 
 	}
 

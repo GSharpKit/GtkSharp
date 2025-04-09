@@ -3,8 +3,7 @@
   <PropertyGroup>
     <Description>GLibSharp is a C# wrapper for the GLib library.</Description>
     <PackageTags>glib;glibsharp;glib-sharp;wrapper</PackageTags>
-    <AssemblyVersion>3.24.24.1</AssemblyVersion>
-    <FileVersion>3.24.24.1</FileVersion>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
 
   <ItemGroup>

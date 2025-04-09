@@ -3,6 +3,7 @@
   <PropertyGroup>
     <Description>AtkSharp is a C# wrapper for the Atk library.</Description>
     <PackageTags>atk;atksharp;atk-sharp;wrapper</PackageTags>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
 
   <ItemGroup>

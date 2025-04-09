@@ -3,6 +3,7 @@
   <PropertyGroup>
     <Description>PangoSharp is a C# wrapper for the Pango library.</Description>
     <PackageTags>pango;pangosharp;pango-sharp;wrapper</PackageTags>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
 
   <ItemGroup>

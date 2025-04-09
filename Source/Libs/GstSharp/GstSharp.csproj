@@ -9,6 +9,7 @@
         <PackageTags>gstreamer;gstreamer-sharp;gst;wrapper</PackageTags>
         <RootNamespace>Gdl</RootNamespace>
         <LangVersion>12</LangVersion>
+        <SignAssembly>false</SignAssembly>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
         <OutputPath>..\..\..\BuildOutput\Debug</OutputPath>

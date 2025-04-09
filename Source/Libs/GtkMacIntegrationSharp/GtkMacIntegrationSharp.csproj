@@ -7,6 +7,7 @@
         <RepositoryUrl>https://github.com/GtkSharp/GtkSharp</RepositoryUrl>
         <Description>GtkWebkitSharp is a C# wrapper for the GtkMacIntegration library.</Description>
         <PackageTags>GtkMacIntegration</PackageTags>
+        <SignAssembly>false</SignAssembly>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
         <OutputPath>..\..\..\BuildOutput\Debug</OutputPath>

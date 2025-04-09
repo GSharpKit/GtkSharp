@@ -3,6 +3,7 @@
   <PropertyGroup>
     <Description>GioSharp is a C# wrapper for the Gio library.</Description>
     <PackageTags>gio;giosharp;gio-sharp;wrapper</PackageTags>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   
   <ItemGroup>

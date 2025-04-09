@@ -3,6 +3,7 @@
   <PropertyGroup>
     <Description>GtkSourceSharp is a C# wrapper for the GtkSourceView library.</Description>
     <PackageTags>sourceview;sourceviewsharp;sourceview-sharp;wrapper</PackageTags>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
 
   <ItemGroup>
