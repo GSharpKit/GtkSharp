@@ -30,7 +30,7 @@ namespace GLib {
 		private Markup () {}
 		
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-		delegate IntPtr d_g_markup_escape_text(IntPtr text, int len);
+		delegate IntPtr d_g_markup_escape_text(IntPtr text, IntPtr length);
 		static d_g_markup_escape_text g_markup_escape_text = FuncLoader.LoadFunction<d_g_markup_escape_text>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GLib), "g_markup_escape_text"));
 		
 		static public string EscapeText (string s)
@@ -39,7 +39,7 @@ namespace GLib {
 				return String.Empty;
 
 			IntPtr native = Marshaller.StringToPtrGStrdup (s);
-			string result = Marshaller.PtrToStringGFree (g_markup_escape_text (native, -1));
+			string result = Marshaller.PtrToStringGFree (g_markup_escape_text (native, (IntPtr)(-1)));
 			Marshaller.Free (native);
 			return result;
 		}

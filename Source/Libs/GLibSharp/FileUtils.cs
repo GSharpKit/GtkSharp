@@ -27,15 +27,15 @@ namespace GLib {
 	public class FileUtils
 	{
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-		delegate bool d_g_file_get_contents(IntPtr filename, out IntPtr contents, out int length, out IntPtr error);
+		delegate bool d_g_file_get_contents(IntPtr filename, out IntPtr contents, out UIntPtr length, out IntPtr error);
 		static d_g_file_get_contents g_file_get_contents = FuncLoader.LoadFunction<d_g_file_get_contents>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GLib), "g_file_get_contents"));
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-		delegate bool d_g_file_get_contents_utf8(IntPtr filename, out IntPtr contents, out int length, out IntPtr error);
-		static d_g_file_get_contents_utf8 g_file_get_contents_utf8 = FuncLoader.LoadFunction<d_g_file_get_contents_utf8>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GObject), "g_file_get_contents_utf8"));
+		delegate bool d_g_file_get_contents_utf8(IntPtr filename, out IntPtr contents, out UIntPtr length, out IntPtr error);
+		static d_g_file_get_contents_utf8 g_file_get_contents_utf8 = FuncLoader.LoadFunction<d_g_file_get_contents_utf8>(FuncLoader.GetProcAddress(GLibrary.Load(Library.GLib), "g_file_get_contents_utf8"));
 
 		public static string GetFileContents (string filename)
 		{
-			int length;
+			UIntPtr length;
 			IntPtr contents, error;
 			IntPtr native_filename = Marshaller.StringToPtrGStrdup (filename);
 
@@ -48,7 +48,7 @@ namespace GLib {
 			}
 
 			Marshaller.Free (native_filename);
-			return Marshaller.Utf8PtrToString (contents);
+			return Marshaller.PtrToStringGFree (contents);
 		}
 
 		private FileUtils () {}
