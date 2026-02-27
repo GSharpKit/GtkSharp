@@ -147,7 +147,6 @@
           <exclude>gdkwindowimpl.h</exclude>
           <exclude>keyname-table.h</exclude>
         </directory>
-	<directory path="gtk+-3.22.6/gdk/deprecated" />
       </namespace>
     </library>
     <library name="libgdk_pixbuf-2.0-0.dll">
@@ -265,7 +264,6 @@
           <exclude>gtkcomposetable.c</exclude>
           <exclude>gtkcomposetable.h</exclude>
         </directory>
-	<directory path="gtk+-3.22.6/gtk/deprecated" />
       </namespace>
     </library>
   </api>

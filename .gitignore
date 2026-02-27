@@ -315,3 +315,8 @@ OpenCover/
 
 # macOS metadata
 .DS_Store
+
+Source/Libs/GtkSharp/GtkSharp-api.xml.*
+Source/OldStuff/sources/gtk-3.24.51/
+Source/OldStuff/sources/sources.xml.bak
+
