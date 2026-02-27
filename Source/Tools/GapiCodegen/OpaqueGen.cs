@@ -157,7 +157,7 @@ namespace GtkSharp.Generation {
 				sw.WriteLine ("\t\t\t{");
 				if (dispose != null)
 					sw.WriteLine ("\t\t\t\t{0} (handle);", dispose.CName);
-				else if (unref != null)
+				else if (unref != null && unref.CName != "gst_mini_object_unref")
 					sw.WriteLine ("\t\t\t\t{0} (handle);", unref.CName);
 				sw.WriteLine ("\t\t\t\tGLib.Timeout.Remove(timeoutHandlerId);");
 				sw.WriteLine ("\t\t\t\treturn false;");
