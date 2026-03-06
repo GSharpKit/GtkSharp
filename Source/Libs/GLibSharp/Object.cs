@@ -69,6 +69,8 @@ namespace GLib {
 
 		protected virtual void Dispose (bool disposing)
 		{
+			if (DisposeDisabled) return;
+
 			ToggleRef tref;
 			lock (Objects) {
 				if (Objects.TryGetValue (Handle, out tref)) {
@@ -80,7 +82,7 @@ namespace GLib {
 			if (tref == null)
 				return;
 
-			if (disposing)
+			if (disposing || DisposeImmediatelyOnFinalize)
 			{
 				tref.Dispose ();
 
@@ -162,6 +164,8 @@ namespace GLib {
 
 		public static bool WarnOnFinalize { get; set; }
 		public static bool TraceObjectConstruction { get; set; }
+		public static bool DisposeImmediatelyOnFinalize { get; set; }
+		public static bool DisposeDisabled { get; set; }
 
 		[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 		delegate IntPtr d_g_object_ref(IntPtr raw);
