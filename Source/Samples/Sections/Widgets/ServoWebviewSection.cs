@@ -39,11 +39,27 @@ namespace Samples
 
 		public (string, Widget) ShowHtml()
 		{
+			var box = new Box (Orientation.Vertical, 5);
+
+			var button = new Button ("Hello World with JS");
+			button.Clicked += (s, e) => {
+				webView.EvaluateScriptAsync("document.body.innerHTML = 'Hello World!'");
+			};
+			box.PackStart(button, false, false, 0);
+
+			var buttonBody = new Button ("Default Body with JS");
+			buttonBody.Clicked += (s, e) => {
+				webView.EvaluateScriptAsync("window.location.replace('')");
+				webView.LoadUri("file:///tmp/test.html");
+			};
+			box.PackStart(buttonBody, false, false, 0);
+
 			webView = new WebView {
 				HeightRequest = 400,
 				WidthRequest = 600,
 				Hexpand = true
 			};
+			box.PackStart(webView, true, true, 0);
 
 			webView.UriChanged += (s, e) => {
 				ApplicationOutput.WriteLine(s, $"UriChanged:\t{e.Uri}");
@@ -55,7 +71,7 @@ namespace Samples
 			);
 			webView.LoadUri("file:///tmp/test.html");
 
-			return ($"{nameof(WebView)} show html text:", webView);
+			return ($"{nameof(WebView)} show html text:", box);
 		}
 
 		/*public (string, Widget) ShowJavaScript()

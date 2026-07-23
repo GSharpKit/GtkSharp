@@ -9,8 +9,14 @@
 
 using System;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace Servo {
+
+	// Receives the outcome of WebView.EvaluateScript. Exactly one of the two
+	// arguments is non-null: on success resultJson holds the script's return
+	// value serialized as JSON; on failure error holds a message.
+	public delegate void ScriptResultHandler (string resultJson, string error);
 
 	public class WebView : Gtk.DrawingArea {
 
@@ -74,5 +80,66 @@ namespace Servo {
 				return ret;
 			}
 		}
+
+		[UnmanagedFunctionPointer (CallingConvention.Cdecl)]
+		delegate void ServoGtkScriptResultCallback (IntPtr web_view, IntPtr result_json, IntPtr error, IntPtr user_data);
+
+		[UnmanagedFunctionPointer (CallingConvention.Cdecl)]
+		delegate void d_servo_gtk_web_view_evaluate_script (IntPtr raw, IntPtr script, ServoGtkScriptResultCallback callback, IntPtr user_data);
+		static d_servo_gtk_web_view_evaluate_script servo_gtk_web_view_evaluate_script = FuncLoader.LoadFunction<d_servo_gtk_web_view_evaluate_script> (FuncLoader.GetProcAddress (GLibrary.Load (Library.Servo), "servo_gtk_web_view_evaluate_script"));
+
+		// Stateless trampoline shared by every call; kept alive for the lifetime
+		// of the process so the native side always has a valid function pointer.
+		static readonly ServoGtkScriptResultCallback script_result_dispatch = ScriptResultDispatch;
+
+		static void ScriptResultDispatch (IntPtr web_view, IntPtr result_json, IntPtr error, IntPtr user_data)
+		{
+			// The per-call managed handler was pinned in EvaluateScript; the
+			// native callback fires exactly once, so release it here.
+			GCHandle gch = (GCHandle) user_data;
+			ScriptResultHandler callback = gch.Target as ScriptResultHandler;
+			gch.Free ();
+
+			try {
+				string result = GLib.Marshaller.Utf8PtrToString (result_json);
+				string err = GLib.Marshaller.Utf8PtrToString (error);
+				callback?.Invoke (result, err);
+			} catch (Exception e) {
+				GLib.ExceptionManager.RaiseUnhandledException (e, false);
+			}
+		}
+
+		// Asynchronously evaluates a JavaScript snippet in the view's top-level
+		// browsing context. The callback is invoked exactly once, later, from
+		// the GTK main loop.
+		public void EvaluateScript (string script, ScriptResultHandler callback)
+		{
+			if (callback == null)
+				throw new ArgumentNullException (nameof (callback));
+
+			GCHandle gch = GCHandle.Alloc (callback);
+			IntPtr native_script = GLib.Marshaller.StringToPtrGStrdup (script);
+			servo_gtk_web_view_evaluate_script (Handle, native_script, script_result_dispatch, (IntPtr) gch);
+			GLib.Marshaller.Free (native_script);
+		}
+
+		// Task-based convenience wrapper. The task completes with the script's
+		// JSON result, or faults with a ScriptException on failure.
+		public Task<string> EvaluateScriptAsync (string script)
+		{
+			TaskCompletionSource<string> tcs = new TaskCompletionSource<string> ();
+			EvaluateScript (script, (result, error) => {
+				if (error != null)
+					tcs.SetException (new ScriptException (error));
+				else
+					tcs.SetResult (result);
+			});
+			return tcs.Task;
+		}
+	}
+
+	// Thrown when an asynchronous script evaluation reports a failure.
+	public class ScriptException : Exception {
+		public ScriptException (string message) : base (message) {}
 	}
 }
