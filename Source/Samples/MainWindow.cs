@@ -6,6 +6,7 @@ using GtkSource;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Samples
 {
@@ -74,6 +75,7 @@ namespace Samples
 
             // Connect events
             _treeView.Selection.Changed += Selection_Changed;
+            DeleteEvent += (sender, e) => _items.Values.ToList().ForEach(x => x.widget?.Dispose());
             Destroyed += (sender, e) => Application.Quit();
         }
 
