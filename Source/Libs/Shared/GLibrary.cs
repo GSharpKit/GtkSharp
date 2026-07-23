@@ -51,6 +51,7 @@ class GLibrary
 	        _libraryDefinitions[Library.GstVideo] = new[] { "libgstvideo-1.0-0.dll", "libgstvideo-1.0.so.0", "libgstvideo-1.0.dylib", "libgstvideo-1.0.dll" };
 	        _libraryDefinitions[Library.GstWebRTC] = new[] { "libgstwebrtc-1.0-0.dll", "libgstwebrtc-1.0.so.0", "libgstwebrtc-1.0.dylib", "libgstwebrtc-1.0.dll" };
 	        _libraryDefinitions[Library.GtkMacIntegration] = new[] { "libgtkmacintegration-gtk3.4.dylib", "libgtkmacintegration-gtk3.4.dylib", "libgtkmacintegration-gtk3.4.dylib", "libgtkmacintegration-gtk3.4.dylib" };
+	        _libraryDefinitions[Library.Servo] = new[] { "libservogtk3.dll", "libservogtk3.so.0", "libservogtk3.0.dylib", "libservogtk3.so" };
 	}
 
 	public static IntPtr Load(Library library)

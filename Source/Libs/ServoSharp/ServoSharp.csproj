@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>ServoSharp is a C# wrapper for the Servo GTK3 web view widget (libservogtk3).</Description>
+    <PackageTags>servo;servosharp;servo-sharp;webview;wrapper</PackageTags>
+    <SignAssembly>false</SignAssembly>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GtkSharp\GtkSharp.csproj" />
+  </ItemGroup>
+
+</Project>

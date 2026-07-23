@@ -37,7 +37,7 @@ namespace Samples
             Titlebar = _headerBar;
 
             var hpanned = new HPaned();
-            hpanned.Position = 200;
+            hpanned.Position = 400;
 
             _treeView = new TreeView();
             _treeView.HeadersVisible = false;
@@ -139,8 +139,8 @@ namespace Samples
                 {
                     if (attribute is SectionAttribute a)
                     {
-                        _store.AppendValues(dict[a.Category], a.ContentType.Name);
-                        _items[a.ContentType.Name] = (type, null);
+                        _store.AppendValues(dict[a.Category], a.ContentType.FullName);
+                        _items[a.ContentType.FullName] = (type, null);
                     }
                 }
             }

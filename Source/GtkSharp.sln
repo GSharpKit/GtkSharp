@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GstSharp", "Libs\GstSharp\G
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GtkMacIntegrationSharp", "Libs\GtkMacIntegrationSharp\GtkMacIntegrationSharp.csproj", "{968775CA-5181-44CF-B0CB-043F3846485D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServoSharp", "Libs\ServoSharp\ServoSharp.csproj", "{A27B3012-8C18-4843-82E9-EF2543095D90}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -197,6 +199,18 @@ Global
 		{968775CA-5181-44CF-B0CB-043F3846485D}.Release|x64.Build.0 = Release|Any CPU
 		{968775CA-5181-44CF-B0CB-043F3846485D}.Release|x86.ActiveCfg = Release|Any CPU
 		{968775CA-5181-44CF-B0CB-043F3846485D}.Release|x86.Build.0 = Release|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Debug|x64.Build.0 = Debug|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Debug|x86.Build.0 = Debug|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Release|x64.ActiveCfg = Release|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Release|x64.Build.0 = Release|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Release|x86.ActiveCfg = Release|Any CPU
+		{A27B3012-8C18-4843-82E9-EF2543095D90}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -214,6 +228,7 @@ Global
 		{84CF2570-C689-4A4F-8D8A-C29279955391} = {CCEA1235-D75F-4919-83F6-16793B11BEF5}
 		{971AFDAE-52D2-4CC3-B460-9E26398B5137} = {CCEA1235-D75F-4919-83F6-16793B11BEF5}
 		{968775CA-5181-44CF-B0CB-043F3846485D} = {CCEA1235-D75F-4919-83F6-16793B11BEF5}
+		{A27B3012-8C18-4843-82E9-EF2543095D90} = {CCEA1235-D75F-4919-83F6-16793B11BEF5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {DA4DD75D-B6C8-4836-AF84-B5FF538D9D86}

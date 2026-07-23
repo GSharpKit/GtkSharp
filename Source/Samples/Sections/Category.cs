@@ -6,6 +6,7 @@ namespace Samples
     enum Category
     {
         Widgets,
+        Applications,
         Dialogs,
         Miscellaneous
     }

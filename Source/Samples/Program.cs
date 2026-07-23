@@ -43,6 +43,8 @@ namespace Samples
             App.AddAction(quitAction);
 
             Win.ShowAll();
+            Win.SetSizeRequest (1200, 600);
+
             Application.Run();
         }
 

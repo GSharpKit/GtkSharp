@@ -27,5 +27,6 @@ enum Library
     GstTag,
     GstVideo,
     GstWebRTC,
-    GtkMacIntegration
+    GtkMacIntegration,
+    Servo
 }

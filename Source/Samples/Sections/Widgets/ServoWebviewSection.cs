@@ -1,49 +1,59 @@
-﻿// This is free and unencumbered software released into the public domain.
+// This is free and unencumbered software released into the public domain.
 // Happy coding!!! - GtkSharp Team
 
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using Atk;
-using Gdk;
 using Gtk;
-using WebKit;
-using IAsyncResult = GLib.IAsyncResult;
-using Object = GLib.Object;
+using Servo;
 
 namespace Samples
 {
-
 	[Section(ContentType = typeof(WebView), Category = Category.Widgets)]
-	class WebviewSection : ListSection
+	class ServoWebviewSection : ListSection
 	{
+		WebView webView;
 
-		public WebviewSection()
+		public ServoWebviewSection()
 		{
-			/*if (!WebKit.Global.IsSupported) {
-				AddItem(($"{nameof(WebKit.WebView)}", new Label($"{typeof(WebView).Namespace} is not suported on your OS")));
-
-				return;
-			}*/
-
 			AddItem(ShowHtml());
-			//AddItem(ShowJavaScript());
-			//AddItem(ShowUri());
-
 		}
+
+		protected override void Dispose(bool disposing)
+		{
+			// Multiple Dispose calls should be OK.
+			if (Disposed) return;
+
+			if (disposing)
+			{
+				webView.Dispose ();
+			}
+
+			// Our fields may have been finalized so we should only
+			// touch native fields (e.g. IntPtr or UIntPtr fields) here.
+			Disposed = true;
+
+			base.Dispose(disposing);
+		}
+
+		protected bool Disposed { get; private set; }
+
 
 		public (string, Widget) ShowHtml()
 		{
-			var webView = new WebView {
-				HeightRequest = 100,
-				WidthRequest = 400,
+			webView = new WebView {
+				HeightRequest = 400,
+				WidthRequest = 600,
 				Hexpand = true
 			};
 
-			//webView.LoadHtml();
-			webView.LoadString ($"This is a Webkit <b>{nameof(WebView)}</b> showing html text", "text/html", "utf-8", "file:///tmp");
+			webView.UriChanged += (s, e) => {
+				ApplicationOutput.WriteLine(s, $"UriChanged:\t{e.Uri}");
+			};
+
+			File.WriteAllText("/tmp/test.html",
+				$"This is a Servo <b>{nameof(WebView)}</b> showing html text" +
+				"<br/>Go to <a href='https://www.google.com'>Google</a>"
+			);
+			webView.LoadUri("file:///tmp/test.html");
 
 			return ($"{nameof(WebView)} show html text:", webView);
 		}
