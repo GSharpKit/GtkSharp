@@ -31,7 +31,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GstSharp", "Libs\GstSharp\G
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GtkMacIntegrationSharp", "Libs\GtkMacIntegrationSharp\GtkMacIntegrationSharp.csproj", "{968775CA-5181-44CF-B0CB-043F3846485D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServoSharp", "Libs\ServoSharp\ServoSharp.csproj", "{A27B3012-8C18-4843-82E9-EF2543095D90}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServoGtkSharp", "Libs\ServoGtkSharp\ServoGtkSharp.csproj", "{A27B3012-8C18-4843-82E9-EF2543095D90}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
