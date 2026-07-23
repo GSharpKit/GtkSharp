@@ -33,6 +33,12 @@ namespace GLib {
 		object reference;
 		GCHandle gch;
 
+		// Serializes Free () so the queued unref (PerformQueuedUnrefs) and an
+		// explicit Dispose () racing on the same instance can't both issue a
+		// native remove_toggle_ref/unref. Per-instance: different ToggleRefs
+		// never contend, so draining the queue stays parallel-friendly.
+		readonly object free_lock = new object ();
+
 		public ToggleRef (GLib.Object target)
 		{
 			handle = target.Handle;
@@ -68,22 +74,43 @@ namespace GLib {
 
   		void Free ()
   		{
+			IntPtr h;
+
+			// Capture-and-null the handle atomically: a second, concurrent Free ()
+			// on this instance sees IntPtr.Zero and bails out, instead of issuing a
+			// second remove_toggle_ref/unref on the same GObject (the double free
+			// that surfaces as an AccessViolationException).
+			//
+			// NOTE: this only dedups double-frees of THIS ToggleRef. It does NOT
+			// hide a genuine ownership bug such as double-wrapping one GObject in
+			// two wrappers (two ToggleRefs) or a transfer-none pointer wrapped as
+			// owned — those still fault. Keep G_DEBUG=fatal-warnings on in debug
+			// so GLib's ref_count criticals still surface those.
+			lock (free_lock) {
+				if (handle == IntPtr.Zero)
+					return;
+				h = handle;
+				handle = IntPtr.Zero;
+			}
+
+			// Dropping the last reference runs the GObject dispose/finalize chain
+			// synchronously, which can re-enter gtk-sharp (disposing children, etc.).
+			// Do it OUTSIDE the lock so that re-entrancy on this thread, or another
+			// thread's Free (), can never deadlock against a native callback.
 			if (hardened)
-				g_object_unref (handle);
+				g_object_unref (h);
 			else
-				g_object_remove_toggle_ref (handle, ToggleNotifyCallback, (IntPtr) gch);
+				g_object_remove_toggle_ref (h, ToggleNotifyCallback, (IntPtr) gch);
 
 			reference = null;
 
 			QueueGCHandleFree ();
 
 			if (Object.IsRecordingObjectTrace)
-				Object.ObjectTraceRecordingRemoved.AddRange (Object.ObjectTraceRecordingNew.Where (x => x.Item1 == handle));
+				Object.ObjectTraceRecordingRemoved.AddRange (Object.ObjectTraceRecordingNew.Where (x => x.Item1 == h));
 
 			if (Object.TraceObjectConstruction)
-				Object.ObjectConstructionTraces.RemoveAll (x => x.Item1 == handle);
-
-			handle = IntPtr.Zero;
+				Object.ObjectConstructionTraces.RemoveAll (x => x.Item1 == h);
 		}
 
 		internal void Harden ()
