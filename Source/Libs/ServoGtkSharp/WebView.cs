@@ -18,7 +18,24 @@ namespace Servo {
 	// value serialized as JSON; on failure error holds a message.
 	public delegate void ScriptResultHandler (string resultJson, string error);
 
-	public class WebView : Gtk.DrawingArea {
+	public delegate void LoadChangedHandler (object o, LoadChangedArgs args);
+
+	public class LoadChangedArgs : GLib.SignalArgs {
+		public LoadEvent LoadEvent {
+			get {
+				return (LoadEvent) Args [0];
+			}
+		}
+	}
+
+	// Mirrors ServoGtkLoadEvent in servo-gtk3-view.h; values must match.
+	public enum LoadEvent {
+		Started,
+		HeadParsed,
+		Finished
+	}
+
+	public class WebView : Gtk.Box {
 
 		public WebView (IntPtr raw) : base (raw) {}
 
@@ -29,6 +46,26 @@ namespace Servo {
 			}
 			remove {
 				this.RemoveSignalHandler ("uri-changed", value);
+			}
+		}
+
+		[GLib.Signal ("load-changed")]
+		public event LoadChangedHandler LoadChanged {
+			add {
+				this.AddSignalHandler ("load-changed", value, typeof (LoadChangedArgs));
+			}
+			remove {
+				this.RemoveSignalHandler ("load-changed", value);
+			}
+		}
+
+		[GLib.Signal ("decide-navigation")]
+		public event DecideNavigationHandler DecideNavigation {
+			add {
+				this.AddSignalHandler ("decide-navigation", value, typeof (DecideNavigationArgs));
+			}
+			remove {
+				this.RemoveSignalHandler ("decide-navigation", value);
 			}
 		}
 

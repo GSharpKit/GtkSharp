@@ -65,9 +65,25 @@ namespace Samples
 				ApplicationOutput.WriteLine(s, $"UriChanged:\t{e.Uri}");
 			};
 
+			webView.LoadChanged += (s, e) => {
+				ApplicationOutput.WriteLine(s, $"LoadChanged:\t{e.LoadEvent}");
+
+				if (e.LoadEvent == LoadEvent.Finished) {
+					// Siden er færdigindlæst
+				}
+			};
+
+			webView.DecideNavigation += (s, e) => {
+				// Returning true (handled) blocks Servo from loading the uri.
+				var block = e.Uri.StartsWith("mailto:");
+				ApplicationOutput.WriteLine(s, $"DecideNavigation:\t{e.Uri} {(block ? "blocked" : "allowed")}");
+				e.RetVal = block;
+			};
+
 			File.WriteAllText("/tmp/test.html",
 				$"This is a Servo <b>{nameof(WebView)}</b> showing html text" +
-				"<br/>Go to <a href='https://www.google.com'>Google</a>"
+				"<br/>Go to <a href='https://www.google.com'>Google</a>" +
+				"<br/>Send <a href='mailto:test@example.com'>mail</a> (blocked by DecideNavigation)"
 			);
 			webView.LoadUri("file:///tmp/test.html");
 
