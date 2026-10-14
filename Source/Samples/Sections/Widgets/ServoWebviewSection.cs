@@ -80,6 +80,14 @@ namespace Samples
 				e.RetVal = block;
 			};
 
+			webView.ContextMenu += (s, e) => {
+				ApplicationOutput.WriteLine(s, $"ContextMenu:\t{e.Flags} link={e.LinkUri} image={e.ImageUri}");
+
+				// Entries can be removed (or added) before the menu is shown;
+				// setting RetVal to true would suppress the menu entirely.
+				Servo.ContextMenu.Remove(e.Menu, Servo.ContextMenu.SelectAll);
+			};
+
 			File.WriteAllText("/tmp/test.html",
 				$"This is a Servo <b>{nameof(WebView)}</b> showing html text" +
 				"<br/>Go to <a href='https://www.google.com'>Google</a>" +

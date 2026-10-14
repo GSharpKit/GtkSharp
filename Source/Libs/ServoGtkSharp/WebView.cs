@@ -18,6 +18,11 @@ namespace Servo {
 	// value serialized as JSON; on failure error holds a message.
 	public delegate void ScriptResultHandler (string resultJson, string error);
 
+	// Receives the outcome of WebView.PrintPdf. printed is true if the file
+	// was handed to a printer; error is only non-null when something actually
+	// went wrong, so a cancelled dialog reports printed = false, error = null.
+	public delegate void PrintResultHandler (bool printed, string error);
+
 	public delegate void LoadChangedHandler (object o, LoadChangedArgs args);
 
 	public class LoadChangedArgs : GLib.SignalArgs {
@@ -66,6 +71,16 @@ namespace Servo {
 			}
 			remove {
 				this.RemoveSignalHandler ("decide-navigation", value);
+			}
+		}
+
+		[GLib.Signal ("context-menu")]
+		public event ContextMenuHandler ContextMenu {
+			add {
+				this.AddSignalHandler ("context-menu", value, typeof (ContextMenuArgs));
+			}
+			remove {
+				this.RemoveSignalHandler ("context-menu", value);
 			}
 		}
 
@@ -173,6 +188,77 @@ namespace Servo {
 			});
 			return tcs.Task;
 		}
+
+		[UnmanagedFunctionPointer (CallingConvention.Cdecl)]
+		delegate bool d_servo_gtk_web_view_can_print ();
+		static d_servo_gtk_web_view_can_print servo_gtk_web_view_can_print = FuncLoader.LoadFunction<d_servo_gtk_web_view_can_print> (FuncLoader.GetProcAddress (GLibrary.Load (Library.Servo), "servo_gtk_web_view_can_print"));
+
+		// Whether this build has a printing backend, and therefore whether
+		// PrintPdf can do anything.
+		public static bool CanPrint {
+			get {
+				return servo_gtk_web_view_can_print ();
+			}
+		}
+
+		[UnmanagedFunctionPointer (CallingConvention.Cdecl)]
+		delegate void ServoGtkPrintResultCallback (IntPtr web_view, bool printed, IntPtr error, IntPtr user_data);
+
+		[UnmanagedFunctionPointer (CallingConvention.Cdecl)]
+		delegate void d_servo_gtk_web_view_print_pdf (IntPtr raw, IntPtr path, ServoGtkPrintResultCallback callback, IntPtr user_data);
+		static d_servo_gtk_web_view_print_pdf servo_gtk_web_view_print_pdf = FuncLoader.LoadFunction<d_servo_gtk_web_view_print_pdf> (FuncLoader.GetProcAddress (GLibrary.Load (Library.Servo), "servo_gtk_web_view_print_pdf"));
+
+		static readonly ServoGtkPrintResultCallback print_result_dispatch = PrintResultDispatch;
+
+		static void PrintResultDispatch (IntPtr web_view, bool printed, IntPtr error, IntPtr user_data)
+		{
+			GCHandle gch = (GCHandle) user_data;
+			PrintResultHandler callback = gch.Target as PrintResultHandler;
+			gch.Free ();
+
+			try {
+				callback?.Invoke (printed, GLib.Marshaller.Utf8PtrToString (error));
+			} catch (Exception e) {
+				GLib.ExceptionManager.RaiseUnhandledException (e, false);
+			}
+		}
+
+		// Asks the user for a printer and sends the PDF at path to it, as it
+		// is on disk: it is never rendered by the web view, and need not be
+		// the document shown. On Unix it goes to the print queue directly; on
+		// Windows it is passed to the application registered for .pdf. The
+		// callback is invoked exactly once, later, from the GTK main loop.
+		public void PrintPdf (string path, PrintResultHandler callback)
+		{
+			if (path == null)
+				throw new ArgumentNullException (nameof (path));
+
+			// Always pass a handler, so the GCHandle is freed by the dispatch.
+			GCHandle gch = GCHandle.Alloc (callback ?? ((printed, error) => {}));
+			IntPtr native_path = GLib.Marshaller.StringToFilenamePtr (path);
+			servo_gtk_web_view_print_pdf (Handle, native_path, print_result_dispatch, (IntPtr) gch);
+			GLib.Marshaller.Free (native_path);
+		}
+
+		// Task-based convenience wrapper. The task completes with whether the
+		// file was printed (false if cancelled), or faults with a
+		// PrintException on failure.
+		public Task<bool> PrintPdfAsync (string path)
+		{
+			TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool> ();
+			PrintPdf (path, (printed, error) => {
+				if (error != null)
+					tcs.SetException (new PrintException (error));
+				else
+					tcs.SetResult (printed);
+			});
+			return tcs.Task;
+		}
+	}
+
+	// Thrown when an asynchronous print request reports a failure.
+	public class PrintException : Exception {
+		public PrintException (string message) : base (message) {}
 	}
 
 	// Thrown when an asynchronous script evaluation reports a failure.
