@@ -18,6 +18,9 @@ namespace Samples
 
             Gst.Application.Init(ref args);
 
+            if (!Servo.Functions.Init(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "org.Samples.Samples", "servo")))
+                Console.WriteLine("Servo could not be started; web views will stay blank");
+
             App = new Application("org.Samples.Samples", GLib.ApplicationFlags.None);
             App.Register(GLib.Cancellable.Current);
 
@@ -46,6 +49,10 @@ namespace Samples
             Win.SetSizeRequest (1200, 600);
 
             Application.Run();
+
+            // Servo must not outlive its web views, so destroy them first.
+            Win.Destroy();
+            Servo.Functions.Release();
         }
 
         private static void HelpActivated(object sender, EventArgs e)
