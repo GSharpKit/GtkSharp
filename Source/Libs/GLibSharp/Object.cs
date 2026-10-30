@@ -50,7 +50,7 @@ namespace GLib {
 
 		~Object ()
 		{
-			if (WarnOnFinalize && GetType ().ToString() != "Gdk.Pixbuf")
+			if (WarnOnFinalize)
 				Console.Error.WriteLine ("Unexpected finalization of " + GetType() + " instance.  Consider calling Dispose. (" + handle.ToInt64 () + ")");
 
 			Dispose (false);
