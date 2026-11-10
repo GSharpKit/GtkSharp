@@ -224,6 +224,10 @@ namespace GLib {
 				if (Object.TraceObjectConstruction && Object.ObjectConstructionTraces.FirstOrDefault (x => x.Item1 == r.handle).Item2 is string trace)
 					Object.QueuedFreeTraces.Add (trace);
 
+				// Queued unrefs come from Dispose (false), i.e. the wrapper was finalized instead of disposed.
+				if (Object.IsRecordingObjectTrace && Object.ObjectTraceRecordingNew.FirstOrDefault (x => x.Item1 == r.handle).Item2 is string recorded)
+					Object.ObjectTraceRecordingFinalized.Add ((r.handle, recorded));
+
 				r.Free ();
 			}
 

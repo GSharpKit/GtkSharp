@@ -83,6 +83,10 @@ namespace GtkSharp.Generation {
 			string unconditional = call.Unconditional ("\t\t\t");
 			if (unconditional.Length > 0)
 				sw.WriteLine (unconditional);
+			// Object tracing: wrappers created for the instance and the arguments get this context.
+			sw.WriteLine ("\t\t\tbool __tracing = GLib.Object.IsTracingObjects;");
+			sw.WriteLine ("\t\t\tstring __trace_previous = __tracing ? GLib.Object.EnterTraceContext (\"vfunc " + container_type.QualifiedName + "." + this.Name + "\") : null;");
+			sw.WriteLine ("\t\t\ttry {");
 			sw.WriteLine ("\t\t\ttry {");
 
 			if (!this.IsStatic) {
@@ -124,6 +128,10 @@ namespace GtkSharp.Generation {
 				sw.WriteLine ("\t\t\t} finally {");
 				sw.Write (call.DisposeParams (indent));
 			}
+			sw.WriteLine ("\t\t\t}");
+			sw.WriteLine ("\t\t\t} finally {");
+			sw.WriteLine ("\t\t\t\tif (__tracing)");
+			sw.WriteLine ("\t\t\t\t\tGLib.Object.LeaveTraceContext (__trace_previous);");
 			sw.WriteLine ("\t\t\t}");
 			sw.WriteLine ("\t\t}");
 			sw.WriteLine ();

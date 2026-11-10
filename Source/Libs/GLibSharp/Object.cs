@@ -44,9 +44,20 @@ namespace GLib {
 		public static bool IsRecordingObjectTrace { get; set; }
 		public static List<(IntPtr, string)> ObjectTraceRecordingNew = new List<(IntPtr, string)>();
 		public static List<(IntPtr, string)> ObjectTraceRecordingRemoved = new List<(IntPtr, string)>();
-		public static List<(IntPtr, string)> ObjectTraceRecordingDiff => ObjectTraceRecordingNew.Where (x => ObjectTraceRecordingRemoved.All (y => y.Item1 != x.Item1)).ToList ();
+		// One entry per native object: construction is traced from both the constructor and the
+		// Raw setter, so the same handle is recorded twice.
+		public static List<(IntPtr, string)> ObjectTraceRecordingDiff {
+			get {
+				var removed = new HashSet<IntPtr> (ObjectTraceRecordingRemoved.Select (x => x.Item1));
+				var seen = new HashSet<IntPtr> ();
+				return ObjectTraceRecordingNew.Where (x => !removed.Contains (x.Item1) && seen.Add (x.Item1)).ToList ();
+			}
+		}
 
 		public static List<string> QueuedFreeTraces = new List<string>();
+
+		// Objects created during recording that were freed by the GC finalizer instead of Dispose ().
+		public static List<(IntPtr, string)> ObjectTraceRecordingFinalized = new List<(IntPtr, string)>();
 
 		~Object ()
 		{
@@ -121,16 +132,88 @@ namespace GLib {
 			"System.Activator.CreateInstance"
 		};
 
+		// Describes what native code is doing when a wrapper is created without any
+		// application frames on the stack, e.g. the signal whose arguments are being marshaled.
+		[ThreadStatic]
+		static string traceContext;
+
+		internal static string TraceContext {
+			get => traceContext;
+			set => traceContext = value;
+		}
+
+		/// <summary>True while object construction is traced or recorded. Used by generated callbacks.</summary>
+		[System.ComponentModel.EditorBrowsable (System.ComponentModel.EditorBrowsableState.Never)]
+		public static bool IsTracingObjects => IsRecordingObjectTrace || TraceObjectConstruction;
+
+		/// <summary>Object tracing only: sets the context printed with wrappers created on this thread; returns the previous one.</summary>
+		[System.ComponentModel.EditorBrowsable (System.ComponentModel.EditorBrowsableState.Never)]
+		public static string EnterTraceContext (string context)
+		{
+			string previous = traceContext;
+			traceContext = context;
+			return previous;
+		}
+
+		/// <summary>Object tracing only: restores the context returned by <see cref="EnterTraceContext"/>.</summary>
+		[System.ComponentModel.EditorBrowsable (System.ComponentModel.EditorBrowsableState.Never)]
+		public static void LeaveTraceContext (string previous) => traceContext = previous;
+
+		/// <summary>Object tracing only: "Type.Method" for each target of a delegate.</summary>
+		[System.ComponentModel.EditorBrowsable (System.ComponentModel.EditorBrowsableState.Never)]
+		public static string DescribeDelegate (Delegate handler)
+		{
+			if (handler == null)
+				return "none";
+
+			return string.Join (", ", handler.GetInvocationList ().Select (d => $"{d.Method.DeclaringType?.FullName}.{d.Method.Name}"));
+		}
+
+		// Object tracing only: set by GetObject while it creates a wrapper for an existing native object.
+		[ThreadStatic]
+		static string wrapKind;
+
+		// How a wrapper came to exist, which decides how it should be released:
+		//   constructed   - "new X ()" in managed code: Dispose it, or use 'using'.
+		//   returned      - a native function returned a new object owned by the caller: Dispose it.
+		//   getter        - wrapper for an object owned elsewhere (StyleContext, Selection, ContentArea, ...):
+		//                   dispose it once, in the owner's Dispose.
+		//   builder       - a Gtk.Builder object or [Builder.Object] field: dispose it in Dispose.
+		//   signal-arg, callback-arg, vfunc-arg
+		//                 - created while marshaling arguments, with no application code on the stack:
+		//                   keep the object in a field or dispose it through its owner.
+		static string TraceKind (string rawStack, IEnumerable<string> frames)
+		{
+			if (wrapKind == null)
+				return "constructed";
+
+			if (rawStack.Contains ("Gtk.Builder."))
+				return "builder";
+
+			if (traceContext != null && !HasApplicationFrame (frames)) {
+				int space = traceContext.IndexOf (' ');
+				return (space > 0 ? traceContext.Substring (0, space) : traceContext) + "-arg";
+			}
+
+			return wrapKind;
+		}
+
 		void TraceConstruction ()
 		{
+			if (!IsTracingObjects) return;
 			if (handle == IntPtr.Zero) return;
 			if (GetType ().ToString() == "Gdk.Pixbuf") return;
 
+			string rawStack = Environment.StackTrace;
+			var frames = rawStack.Split ('\n').Skip (2).Where (x => filter.All (y => !x.Contains (y))).ToList ();
+			string context = traceContext == null ? string.Empty : $"   during {traceContext}\n";
+			string trace = $"{GetType ()} {handle.ToInt64()} [{TraceKind (rawStack, frames)}] ->\n" + context + string.Join ("\n", frames) + "\n";
+
 			if (IsRecordingObjectTrace)
-				ObjectTraceRecordingNew.Add ((handle, $"{GetType ()} {handle.ToInt64()} ->\n" + Environment.StackTrace.Split ('\n').Skip (2).Where (x => filter.All (y => !x.Contains (y))).Aggregate ((x, y) => x + "\n" + y) + "\n"));
+				ObjectTraceRecordingNew.Add ((handle, trace));
 
 			if (TraceObjectConstruction)
-				ObjectConstructionTraces.Add ((handle, $"{GetType ()} {handle.ToInt64()} ->\n" + Environment.StackTrace.Split ('\n').Skip (2).Where (x => filter.All (y => !x.Contains (y))).Aggregate ((x, y) => x + "\n" + y) + "\n"));
+				ObjectConstructionTraces.Add ((handle, trace));
 		}
 
 		public static bool ToggleObjectTraceRecording ()
@@ -139,6 +222,9 @@ namespace GLib {
 			{
 				ObjectTraceRecordingNew.Clear();
 				ObjectTraceRecordingRemoved.Clear();
+				ObjectTraceRecordingFinalized.Clear();
+				lock (UseAfterDisposeTraces)
+					UseAfterDisposeTraces.Clear ();
 			}
 
 			return IsRecordingObjectTrace = !IsRecordingObjectTrace;
@@ -150,14 +236,223 @@ namespace GLib {
 			       $"Old objects removed (existing prior to start): {ObjectTraceRecordingRemoved.Count (x => ObjectTraceRecordingNew.All (y => y.Item1 != x.Item1))}\n" +
 			       $"New objects: {ObjectTraceRecordingNew.Count}\n" +
 			       $"Transient objects (create and freed during): {ObjectTraceRecordingRemoved.Count (x => ObjectTraceRecordingNew.Any (y => y.Item1 == x.Item1))}\n" +
-			       $"Potentially leaked objects (create without freeing): {ObjectTraceRecordingDiff.Count}";
+			       $"Potentially leaked objects (create without freeing): {ObjectTraceRecordingDiff.Count}\n" +
+			       $"Freed by the GC finalizer instead of Dispose: {ObjectTraceRecordingFinalized.Select (x => x.Item1).Distinct ().Count ()}";
 		}
 
 		public static string ObjectTraceRecordingReport()
 		{
-			return $"Is currently recording: {IsRecordingObjectTrace}\n" +
-			       $"Potientially leaked objects: {ObjectTraceRecordingDiff.Count}\n\n" +
-			       ObjectTraceRecordingDiff.Select(x => x.Item2).Aggregate((x, y) => x + "\n" + y);
+			var diff = ObjectTraceRecordingDiff;
+			var groups = diff.GroupBy (x => TraceSummaryKey (x.Item2))
+				.OrderByDescending (g => g.Count ())
+				.ToList ();
+
+			var report = new System.Text.StringBuilder ();
+			report.Append ($"Is currently recording: {IsRecordingObjectTrace}\n");
+			report.Append ($"Potientially leaked objects: {diff.Count}\n\n");
+
+			report.Append ("Kinds: [constructed] new in managed code, [returned] owned object returned by a native call,\n" +
+			               "       [getter] wrapper for an object owned elsewhere (dispose once in the owner's Dispose),\n" +
+			               "       [builder] Gtk.Builder object, [signal-arg]/[callback-arg]/[vfunc-arg] created while marshaling arguments.\n\n");
+			report.Append ($"Summary ({groups.Count} sources):\n");
+			foreach (var g in groups)
+				report.Append ($"{g.Count (),5} x {g.Key}\n");
+
+			report.Append ("\n").Append (UseAfterDisposeReport ());
+			report.Append ("\n").Append (FinalizedReport ());
+			report.Append ("\n").Append (HandlersOnDisposedObjectsReport ());
+
+			report.Append ("\nOne example per source:\n\n");
+			foreach (var g in groups)
+				report.Append ($"[{g.Count ()} x] ").Append (g.First ().Item2).Append ("\n");
+
+			return report.ToString ();
+		}
+
+		// Frames from the bindings and the runtime; the first frame outside these is application code.
+		static readonly string[] libraryFramePrefixes = {
+			"GLib.", "Gtk.", "Gdk.", "Pango.", "Cairo.", "Atk.", "GtkSource.", "WebKit.",
+			"System.", "Microsoft.", "Mono.", "InvokeStub_"
+		};
+
+		static IEnumerable<string> ApplicationFrames (IEnumerable<string> lines)
+		{
+			return lines
+				.Select (l => l.Trim ())
+				.Where (l => l.StartsWith ("at "))
+				.Select (l => l.Substring (3))
+				.Where (l => !libraryFramePrefixes.Any (p => l.StartsWith (p)))
+				// The program entry point is below every main loop dispatch and says nothing about the source.
+				.Where (l => !l.Contains (".Main(String[] args)"));
+		}
+
+		static bool HasApplicationFrame (IEnumerable<string> lines) => ApplicationFrames (lines).Any ();
+
+		// Created on first use, so the type initializer does not compile a regex when tracing is off.
+		static System.Text.RegularExpressions.Regex frameLocationCache;
+		static System.Text.RegularExpressions.Regex frameLocation => frameLocationCache ??=
+			new System.Text.RegularExpressions.Regex (@"\(.*?\)( in .*[\\/]([^\\/]+):line (\d+))?\s*$");
+
+		// "Type  App.Frame (File.cs:12) <- Caller (File.cs:34) <- ..." or, when no application frame
+		// is on the stack, the signal/callback the wrapper was created in.
+		static string TraceSummaryKey (string trace)
+		{
+			var lines = trace.Split ('\n');
+			var header = lines[0].Split (' ');
+			string kind = header.FirstOrDefault (p => p.StartsWith ("["));
+			string type = kind == null ? header[0] : $"{header[0]} {kind}";
+
+			var appFrames = ApplicationFrames (lines)
+				.Take (3)
+				.Select (l => frameLocation.Replace (l, m => m.Groups[2].Success ? $" ({m.Groups[2].Value}:{m.Groups[3].Value})" : string.Empty))
+				.ToList ();
+
+			if (appFrames.Count > 0)
+				return $"{type}  {string.Join (" <- ", appFrames)}";
+
+			string during = lines.Select (l => l.Trim ()).FirstOrDefault (l => l.StartsWith ("during "));
+			return during != null ? $"{type}  ({during})" : $"{type}  (no application frames)";
+		}
+
+		// Use after Dispose: while object tracing is active, a stack trace is recorded when Handle is
+		// read on a wrapper that has been disposed, e.g. calling a method or removing an event handler.
+
+		// Unique stack trace -> number of occurrences.
+		public static Dictionary<string, int> UseAfterDisposeTraces = new Dictionary<string, int> ();
+
+		// Callers that read Handle only to check whether the wrapper is still alive.
+		static readonly HashSet<string> handleCheckCallers = new HashSet<string> {
+			"Dispose", "Destroy", "Finalize", "LookupGType", "get_NativeType", "ToString", "Equals", "GetHashCode"
+		};
+
+		[System.Runtime.CompilerServices.MethodImpl (System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+		void OnZeroHandleAccess ()
+		{
+			if (disposed && IsTracingObjects)
+				TraceUseAfterDisposeAccess ();
+		}
+
+		void TraceUseAfterDisposeAccess ()
+		{
+			var stack = new System.Diagnostics.StackTrace (1, true);
+
+			// The first frame outside this method and the Handle getter (which the JIT may inline).
+			var caller = stack.GetFrames ()
+				.Select (f => f.GetMethod ())
+				.FirstOrDefault (m => m != null && !(m.DeclaringType == typeof (Object) && (m.Name == "get_Handle" || m.Name == nameof (OnZeroHandleAccess) || m.Name == nameof (TraceUseAfterDisposeAccess))));
+			if (caller == null || handleCheckCallers.Contains (caller.Name))
+				return;
+
+			string context = traceContext == null ? string.Empty : $"   during {traceContext}\n";
+			string trace = $"{GetType ()} used after Dispose ->\n" + context +
+				stack.ToString ().TrimEnd ().Split ('\n').Where (x => filter.All (y => !x.Contains (y))).Aggregate (string.Empty, (x, y) => x + y.TrimEnd () + "\n");
+
+			bool first;
+			lock (UseAfterDisposeTraces) {
+				UseAfterDisposeTraces.TryGetValue (trace, out int count);
+				first = count == 0;
+				UseAfterDisposeTraces[trace] = count + 1;
+			}
+
+			// Print right away: a use after Dispose is often followed by a crash before a report is taken.
+			if (first)
+				Console.Error.WriteLine (trace);
+		}
+
+		// Objects created during recording that only the GC finalizer released: they are missing a
+		// Dispose () and kept their native object alive until a collection happened to run.
+		public static string FinalizedReport ()
+		{
+			var seen = new HashSet<IntPtr> ();
+			var groups = ObjectTraceRecordingFinalized
+				.Where (x => seen.Add (x.Item1))
+				.GroupBy (x => TraceSummaryKey (x.Item2))
+				.OrderByDescending (g => g.Count ())
+				.ToList ();
+
+			var report = new System.Text.StringBuilder ();
+			report.Append ($"Freed by the GC finalizer instead of Dispose: {seen.Count} objects from {groups.Count} sources\n");
+			foreach (var g in groups)
+				report.Append ($"{g.Count (),5} x {g.Key}\n");
+			foreach (var g in groups)
+				report.Append ("\n").Append ($"[{g.Count ()} x] ").Append (g.First ().Item2);
+
+			return report.ToString ();
+		}
+
+		// Signal handlers on live objects whose target (or the 'this' captured by a lambda) is a
+		// disposed wrapper. The delegate keeps the disposed object, and everything it references,
+		// reachable for as long as the emitting object lives.
+		public static string HandlersOnDisposedObjectsReport ()
+		{
+			var found = new List<(string Key, string Detail)> ();
+
+			List<ToggleRef> refs;
+			lock (Objects)
+				refs = Objects.Values.ToList ();
+
+			foreach (var tref in refs) {
+				Object emitter = tref.Target;
+				if (emitter?.signals == null)
+					continue;
+
+				foreach (var signal in emitter.signals.Values.ToList ()) {
+					foreach (var d in signal.ConnectedHandlers) {
+						Object subscriber = d.Target as Object ?? CapturedThis (d.Target) as Object;
+						if (subscriber == null || !subscriber.disposed)
+							continue;
+
+						string handler = $"{d.Method.DeclaringType?.FullName}.{d.Method.Name}";
+						string key = $"signal '{signal.Name}' on {emitter.GetType ()} -> {handler} (disposed {subscriber.GetType ()})";
+						string created = FindConstructionTrace (emitter.Handle) ?? $"{emitter.GetType ()} {emitter.Handle.ToInt64 ()} -> created before recording started\n";
+						found.Add ((key, $"{key}\n   emitter: " + created));
+					}
+				}
+			}
+
+			var groups = found.GroupBy (x => x.Key).OrderByDescending (g => g.Count ()).ToList ();
+
+			var report = new System.Text.StringBuilder ();
+			report.Append ($"Handlers on disposed objects: {found.Count} handlers in {groups.Count} places\n");
+			foreach (var g in groups)
+				report.Append ($"{g.Count (),5} x {g.Key}\n");
+			foreach (var g in groups)
+				report.Append ("\n").Append ($"[{g.Count ()} x] ").Append (g.First ().Detail);
+
+			return report.ToString ();
+		}
+
+		// The 'this' of the method that created a lambda or local function, if it captured one.
+		static object CapturedThis (object closure)
+		{
+			if (closure == null || closure is Object)
+				return null;
+
+			var field = closure.GetType ().GetFields (BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+				.FirstOrDefault (f => f.Name.EndsWith ("__this"));
+			return field?.GetValue (closure);
+		}
+
+		static string FindConstructionTrace (IntPtr h)
+		{
+			string trace = ObjectTraceRecordingNew.FirstOrDefault (x => x.Item1 == h).Item2;
+			return trace ?? ObjectConstructionTraces.FirstOrDefault (x => x.Item1 == h).Item2;
+		}
+
+		public static string UseAfterDisposeReport ()
+		{
+			List<KeyValuePair<string, int>> traces;
+			lock (UseAfterDisposeTraces)
+				traces = UseAfterDisposeTraces.OrderByDescending (x => x.Value).ToList ();
+
+			var report = new System.Text.StringBuilder ();
+			report.Append ($"Used after Dispose: {traces.Count} places\n");
+			foreach (var t in traces)
+				report.Append ($"{t.Value,5} x {TraceSummaryKey (t.Key)}\n");
+			foreach (var t in traces)
+				report.Append ("\n").Append ($"[{t.Value} x] ").Append (t.Key);
+
+			return report.ToString ();
 		}
 
 		public static bool WarnOnFinalize { get; set; }
@@ -224,7 +519,17 @@ namespace GLib {
 			else if (owned_ref && g_object_is_floating(o))
 				unexpected_owned_floating = true;
 
-			obj = GLib.ObjectManager.CreateObject(o);
+			if (IsTracingObjects) {
+				string previousKind = wrapKind;
+				wrapKind = owned_ref ? "returned" : "getter";
+				try {
+					obj = GLib.ObjectManager.CreateObject(o);
+				} finally {
+					wrapKind = previousKind;
+				}
+			} else {
+				obj = GLib.ObjectManager.CreateObject(o);
+			}
 			if (obj == null) {
 				g_object_unref (o);
 				return null;
@@ -816,7 +1121,13 @@ namespace GLib {
 		}
 
 		public IntPtr Handle {
-			get { return handle; }
+			get {
+				// Keep the hot path tiny so the JIT still inlines it; a zero handle is the rare case.
+				IntPtr h = handle;
+				if (h == IntPtr.Zero)
+					OnZeroHandleAccess ();
+				return h;
+			}
 		}
 
 		public IntPtr OwnedHandle {

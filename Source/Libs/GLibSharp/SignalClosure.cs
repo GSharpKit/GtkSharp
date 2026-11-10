@@ -23,6 +23,7 @@ namespace GLib {
 
 	using System;
 	using System.Collections;
+	using System.Linq;
 	using System.Runtime.InteropServices;
 
 	internal class ClosureInvokedArgs : EventArgs {
@@ -94,6 +95,13 @@ namespace GLib {
 		public event EventHandler Disposed;
 		public event ClosureInvokedHandler Invoked;
 
+		// Object tracing only: the Signal subscribed to Invoked owns the managed handlers.
+		string DescribeHandlers ()
+		{
+			var signal = Invoked?.GetInvocationList ().Select (d => d.Target).OfType<Signal> ().FirstOrDefault ();
+			return signal?.DescribeHandlers (this) ?? "?";
+		}
+
 		public void Connect (bool is_after)
 		{
 			IntPtr native_name = GLib.Marshaller.StringToPtrGStrdup (name);
@@ -141,14 +149,21 @@ namespace GLib {
 		static void MarshalCallback (IntPtr raw_closure, IntPtr return_val, uint n_param_vals, IntPtr param_values, IntPtr invocation_hint, IntPtr marshal_data)
 		{
 			string message = String.Empty;
+			bool tracing = GLib.Object.IsTracingObjects;
+			string previousTraceContext = tracing ? GLib.Object.TraceContext : null;
 
 			try {
 				SignalClosure closure = closures [raw_closure] as SignalClosure;
 				message = "Marshaling " + closure.name + " signal";
+				if (tracing)
+					GLib.Object.TraceContext = $"signal '{closure.name}'";
 				Value objval = (Value) Marshal.PtrToStructure (param_values, typeof (Value));
 				GLib.Object __obj = objval.Val as GLib.Object;
 				if (__obj == null)
 					return;
+
+				if (tracing)
+					GLib.Object.TraceContext = $"signal '{closure.name}' on {__obj.GetType ()} {__obj.Handle.ToInt64 ()}, handlers: {closure.DescribeHandlers ()}";
 
 				if (closure.args_type == typeof (EventArgs)) {
 					closure.Invoke (new ClosureInvokedArgs (__obj, EventArgs.Empty));
@@ -179,6 +194,9 @@ namespace GLib {
 			} catch (Exception e) {
 				Console.WriteLine (message);
 				ExceptionManager.RaiseUnhandledException (e, false);
+			} finally {
+				if (tracing)
+					GLib.Object.TraceContext = previousTraceContext;
 			}
 		}
 

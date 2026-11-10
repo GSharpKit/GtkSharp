@@ -23,6 +23,8 @@
 namespace GLib {
 
 	using System;
+	using System.Collections.Generic;
+	using System.Linq;
 	using System.Runtime.InteropServices;
 
 	[Flags]
@@ -215,6 +217,24 @@ namespace GLib {
 				return hint.run_type.HasFlag(Flags.RunFirst)
 					? before_handler
 					: after_handler;
+			}
+		}
+
+		// Object tracing only: the managed handlers behind one of this signal's closures.
+		internal string DescribeHandlers (SignalClosure closure)
+		{
+			return Object.DescribeDelegate (closure == before_closure ? before_handler : after_handler);
+		}
+
+		internal string Name => name;
+
+		// Object tracing only: every connected handler, before and after.
+		internal IEnumerable<Delegate> ConnectedHandlers {
+			get {
+				foreach (var handler in new[] { before_handler, after_handler })
+					if (handler != null)
+						foreach (var d in handler.GetInvocationList ())
+							yield return d;
 			}
 		}
 

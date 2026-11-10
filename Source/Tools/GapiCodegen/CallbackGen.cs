@@ -220,6 +220,10 @@ namespace GtkSharp.Generation {
 			string unconditional = call.Unconditional ("\t\t\t");
 			if (unconditional.Length > 0)
 				sw.WriteLine (unconditional);
+			// Object tracing: wrappers created while marshaling the arguments get this context.
+			sw.WriteLine ("\t\t\tbool __tracing = GLib.Object.IsTracingObjects;");
+			sw.WriteLine ("\t\t\tstring __trace_previous = __tracing ? GLib.Object.EnterTraceContext (\"callback " + NS + "." + Name + " -> \" + GLib.Object.DescribeDelegate (managed)) : null;");
+			sw.WriteLine ("\t\t\ttry {");
 			sw.WriteLine ("\t\t\ttry {");
 			string call_setup = call.Setup ("\t\t\t\t");
 			if (call_setup.Length > 0)
@@ -250,6 +254,10 @@ namespace GtkSharp.Generation {
 			} else if (retval.MarshalType == "bool") {
 				sw.WriteLine ("\t\t\t\treturn false;");
 			}
+			sw.WriteLine ("\t\t\t}");
+			sw.WriteLine ("\t\t\t} finally {");
+			sw.WriteLine ("\t\t\t\tif (__tracing)");
+			sw.WriteLine ("\t\t\t\t\tGLib.Object.LeaveTraceContext (__trace_previous);");
 			sw.WriteLine ("\t\t\t}");
 			sw.WriteLine ("\t\t}");
 			sw.WriteLine ();
