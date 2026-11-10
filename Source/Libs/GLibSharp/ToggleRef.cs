@@ -225,7 +225,8 @@ namespace GLib {
 					Object.QueuedFreeTraces.Add (trace);
 
 				// Queued unrefs come from Dispose (false), i.e. the wrapper was finalized instead of disposed.
-				if (Object.IsRecordingObjectTrace && Object.ObjectTraceRecordingNew.FirstOrDefault (x => x.Item1 == r.handle).Item2 is string recorded)
+				// The latest entry for the handle belongs to the wrapper being finalized.
+				if (Object.IsRecordingObjectTrace && Object.ObjectTraceRecordingNew.LastOrDefault (x => x.Item1 == r.handle).Item2 is string recorded)
 					Object.ObjectTraceRecordingFinalized.Add ((r.handle, recorded));
 
 				r.Free ();

@@ -44,13 +44,15 @@ namespace GLib {
 		public static bool IsRecordingObjectTrace { get; set; }
 		public static List<(IntPtr, string)> ObjectTraceRecordingNew = new List<(IntPtr, string)>();
 		public static List<(IntPtr, string)> ObjectTraceRecordingRemoved = new List<(IntPtr, string)>();
-		// One entry per native object: construction is traced from both the constructor and the
-		// Raw setter, so the same handle is recorded twice.
+		// One entry per live wrapper. Removed entries are matched by their trace string, not by handle:
+		// when a wrapper is disposed and the same native object is wrapped again later, the new wrapper
+		// has its own entry and must still be reported. Construction is traced from both the constructor
+		// and the Raw setter, so a wrapper has two entries; keep one per handle.
 		public static List<(IntPtr, string)> ObjectTraceRecordingDiff {
 			get {
-				var removed = new HashSet<IntPtr> (ObjectTraceRecordingRemoved.Select (x => x.Item1));
+				var removed = new HashSet<string> (ObjectTraceRecordingRemoved.Select (x => x.Item2), ReferenceComparer<string>.Instance);
 				var seen = new HashSet<IntPtr> ();
-				return ObjectTraceRecordingNew.Where (x => !removed.Contains (x.Item1) && seen.Add (x.Item1)).ToList ();
+				return ObjectTraceRecordingNew.Where (x => !removed.Contains (x.Item2) && seen.Add (x.Item1)).ToList ();
 			}
 		}
 
@@ -446,7 +448,7 @@ namespace GLib {
 		static Dictionary<IntPtr, string> FindStaticHolders (List<(IntPtr, string)> traces)
 		{
 			var result = new Dictionary<IntPtr, string> ();
-			var wanted = new Dictionary<object, IntPtr> (ReferenceComparer.Instance);
+			var wanted = new Dictionary<object, IntPtr> (ReferenceComparer<object>.Instance);
 			foreach (var (h, _) in traces) {
 				var o = TryGetObject (h);
 				if (o != null)
@@ -582,11 +584,11 @@ namespace GLib {
 			return result;
 		}
 
-		sealed class ReferenceComparer : IEqualityComparer<object>
+		sealed class ReferenceComparer<T> : IEqualityComparer<T> where T : class
 		{
-			public static readonly ReferenceComparer Instance = new ReferenceComparer ();
-			public new bool Equals (object x, object y) => ReferenceEquals (x, y);
-			public int GetHashCode (object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode (obj);
+			public static readonly ReferenceComparer<T> Instance = new ReferenceComparer<T> ();
+			public bool Equals (T x, T y) => ReferenceEquals (x, y);
+			public int GetHashCode (T obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode (obj);
 		}
 
 		// The 'this' of the method that created a lambda or local function, if it captured one.
@@ -602,8 +604,9 @@ namespace GLib {
 
 		static string FindConstructionTrace (IntPtr h)
 		{
-			string trace = ObjectTraceRecordingNew.FirstOrDefault (x => x.Item1 == h).Item2;
-			return trace ?? ObjectConstructionTraces.FirstOrDefault (x => x.Item1 == h).Item2;
+			// The latest entry belongs to the current wrapper of the handle.
+			string trace = ObjectTraceRecordingNew.LastOrDefault (x => x.Item1 == h).Item2;
+			return trace ?? ObjectConstructionTraces.LastOrDefault (x => x.Item1 == h).Item2;
 		}
 
 		public static string UseAfterDisposeReport ()
