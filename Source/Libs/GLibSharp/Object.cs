@@ -202,7 +202,6 @@ namespace GLib {
 		{
 			if (!IsTracingObjects) return;
 			if (handle == IntPtr.Zero) return;
-			if (GetType ().ToString() == "Gdk.Pixbuf") return;
 
 			string rawStack = Environment.StackTrace;
 			var frames = rawStack.Split ('\n').Skip (2).Where (x => filter.All (y => !x.Contains (y))).ToList ();
