@@ -242,19 +242,34 @@ namespace GLib {
 		public static string ObjectTraceRecordingReport()
 		{
 			var diff = ObjectTraceRecordingDiff;
-			var groups = diff.GroupBy (x => TraceSummaryKey (x.Item2))
+
+			// Objects kept by a static field are alive by design; list them apart from the leaks.
+			var staticHolders = FindStaticHolders (diff);
+			var leaked = diff.Where (x => !staticHolders.ContainsKey (x.Item1)).ToList ();
+			var held = diff.Where (x => staticHolders.ContainsKey (x.Item1)).ToList ();
+
+			var groups = leaked.GroupBy (x => TraceSummaryKey (x.Item2))
+				.OrderByDescending (g => g.Count ())
+				.ToList ();
+			var heldGroups = held.GroupBy (x => $"{TraceSummaryKey (x.Item2)}  held by static {staticHolders[x.Item1]}")
 				.OrderByDescending (g => g.Count ())
 				.ToList ();
 
 			var report = new System.Text.StringBuilder ();
 			report.Append ($"Is currently recording: {IsRecordingObjectTrace}\n");
-			report.Append ($"Potientially leaked objects: {diff.Count}\n\n");
+			report.Append ($"Potientially leaked objects: {leaked.Count}\n");
+			report.Append ($"Held by static fields: {held.Count}\n\n");
 
 			report.Append ("Kinds: [constructed] new in managed code, [returned] owned object returned by a native call,\n" +
 			               "       [getter] wrapper for an object owned elsewhere (dispose once in the owner's Dispose),\n" +
 			               "       [builder] Gtk.Builder object, [signal-arg]/[callback-arg]/[vfunc-arg] created while marshaling arguments.\n\n");
 			report.Append ($"Summary ({groups.Count} sources):\n");
 			foreach (var g in groups)
+				report.Append ($"{g.Count (),5} x {g.Key}\n");
+
+			report.Append ($"\nHeld by static fields ({heldGroups.Count} sources): never released, as no instance owns them.\n" +
+			               "Replace a static icon Pixbuf with an icon name; give other objects an owner that disposes them.\n");
+			foreach (var g in heldGroups)
 				report.Append ($"{g.Count (),5} x {g.Key}\n");
 
 			report.Append ("\n").Append (UseAfterDisposeReport ());
@@ -264,6 +279,8 @@ namespace GLib {
 			report.Append ("\nOne example per source:\n\n");
 			foreach (var g in groups)
 				report.Append ($"[{g.Count ()} x] ").Append (g.First ().Item2).Append ("\n");
+			foreach (var g in heldGroups)
+				report.Append ($"[{g.Count ()} x, held by static {staticHolders[g.First ().Item1]}] ").Append (g.First ().Item2).Append ("\n");
 
 			return report.ToString ();
 		}
@@ -419,6 +436,157 @@ namespace GLib {
 				report.Append ("\n").Append ($"[{g.Count ()} x] ").Append (g.First ().Detail);
 
 			return report.ToString ();
+		}
+
+		// Report only: which of the traced wrappers a static field holds, as "Type.field".
+		// Only types whose code is on the wrappers' creation stacks are read: a cached static
+		// (static X => x ??= ..., static readonly X = ..., a static constructor) created the object
+		// from inside that type, and reading the fields of a type whose code already ran does not
+		// start a type initializer that would otherwise not have run.
+		static Dictionary<IntPtr, string> FindStaticHolders (List<(IntPtr, string)> traces)
+		{
+			var result = new Dictionary<IntPtr, string> ();
+			var wanted = new Dictionary<object, IntPtr> (ReferenceComparer.Instance);
+			foreach (var (h, _) in traces) {
+				var o = TryGetObject (h);
+				if (o != null)
+					wanted[o] = h;
+			}
+			if (wanted.Count == 0)
+				return result;
+
+			foreach (var type in TypesOnStacks (traces.Select (x => x.Item2))) {
+				FieldInfo[] fields;
+				try {
+					fields = type.GetFields (BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+				} catch {
+					continue;
+				}
+
+				foreach (var field in fields) {
+					var ft = field.FieldType;
+					if (field.IsLiteral || ft.IsPrimitive || ft.IsEnum || ft == typeof (string) || ft.IsPointer)
+						continue;
+
+					object value;
+					try {
+						value = field.GetValue (null);
+					} catch {
+						continue;
+					}
+
+					foreach (var item in StaticFieldItems (value)) {
+						if (item != null && wanted.TryGetValue (item, out IntPtr h) && !result.ContainsKey (h))
+							result[h] = $"{type.FullName?.Replace ('+', '.')}.{field.Name}";
+					}
+				}
+			}
+
+			return result;
+		}
+
+		// The value itself and, one level down, the items of a collection or a created Lazy<T>.
+		static IEnumerable<object> StaticFieldItems (object value)
+		{
+			if (value == null)
+				yield break;
+
+			yield return value;
+
+			// A GLib object (e.g. a ListStore) can be enumerable; its rows are not what we look for.
+			if (value is Object || value is string)
+				yield break;
+
+			var type = value.GetType ();
+			if (type.IsGenericType && type.GetGenericTypeDefinition () == typeof (Lazy<>)) {
+				object created = null;
+				try {
+					if ((bool) type.GetProperty ("IsValueCreated").GetValue (value))
+						created = type.GetProperty ("Value").GetValue (value);
+				} catch {
+				}
+				if (created != null)
+					yield return created;
+				yield break;
+			}
+
+			var items = new List<object> ();
+			try {
+				if (value is System.Collections.IDictionary dictionary) {
+					foreach (System.Collections.DictionaryEntry entry in dictionary) {
+						items.Add (entry.Key);
+						items.Add (entry.Value);
+					}
+				} else if (value is System.Collections.IEnumerable enumerable) {
+					foreach (var item in enumerable) {
+						items.Add (item);
+						if (items.Count >= 100000)
+							break;
+					}
+				}
+			} catch {
+				// The collection changed or could not be enumerated; report what we have.
+			}
+
+			foreach (var item in items)
+				yield return item;
+		}
+
+		// Application types (and their enclosing types) named in "at Type.Method(...)" frames.
+		static HashSet<Type> TypesOnStacks (IEnumerable<string> traces)
+		{
+			var byName = new Dictionary<string, Type> ();
+			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies ()) {
+				if (assembly.IsDynamic)
+					continue;
+				string name = assembly.GetName ().Name ?? string.Empty;
+				if (name.StartsWith ("System") || name.StartsWith ("Microsoft") || name == "mscorlib" || name == "netstandard")
+					continue;
+
+				Type[] types;
+				try {
+					types = assembly.GetTypes ();
+				} catch (ReflectionTypeLoadException e) {
+					types = e.Types.Where (t => t != null).ToArray ();
+				} catch {
+					continue;
+				}
+
+				foreach (var t in types) {
+					if (t.FullName != null && !t.ContainsGenericParameters)
+						byName[t.FullName.Replace ('+', '.')] = t;
+				}
+			}
+
+			var result = new HashSet<Type> ();
+			foreach (var frame in ApplicationFrames (traces.SelectMany (t => t.Split ('\n')))) {
+				int paren = frame.IndexOf ('(');
+				string method = paren > 0 ? frame.Substring (0, paren) : frame;
+				string typeName;
+				if (method.EndsWith ("..ctor") || method.EndsWith ("..cctor"))
+					typeName = method.Substring (0, method.LastIndexOf ("..", StringComparison.Ordinal));
+				else {
+					int dot = method.LastIndexOf ('.');
+					if (dot <= 0)
+						continue;
+					typeName = method.Substring (0, dot);
+				}
+
+				if (!byName.TryGetValue (typeName, out Type type))
+					continue;
+
+				for (var t = type; t != null; t = t.DeclaringType)
+					result.Add (t);
+			}
+
+			return result;
+		}
+
+		sealed class ReferenceComparer : IEqualityComparer<object>
+		{
+			public static readonly ReferenceComparer Instance = new ReferenceComparer ();
+			public new bool Equals (object x, object y) => ReferenceEquals (x, y);
+			public int GetHashCode (object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode (obj);
 		}
 
 		// The 'this' of the method that created a lambda or local function, if it captured one.
