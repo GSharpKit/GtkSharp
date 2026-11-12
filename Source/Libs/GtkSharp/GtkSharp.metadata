@@ -510,6 +510,8 @@
   <attr path="/api/namespace/object[@cname='GtkPlacesSidebar']/method[@name='ListShortcuts']/return-type" name="owned">true</attr>
   <attr path="/api/namespace/object[@cname='GtkPlug']/constructor[@cname='gtk_plug_new']" name="hidden">1</attr>
   <attr path="/api/namespace/object[@cname='GtkPlug']/constructor[@cname='gtk_plug_new_for_display']" name="hidden">1</attr>
+  <attr path="/api/namespace/object[@cname='GtkPopover']/constructor[@cname='gtk_popover_new']" name="hidden">1</attr>
+  <attr path="/api/namespace/object[@cname='GtkPopover']/constructor[@cname='gtk_popover_new_from_model']" name="hidden">1</attr>
   <attr path="/api/namespace/object[@cname='GtkPlug']/property[@name='Embedded']" name="name">IsEmbedded</attr>
   <attr path="/api/namespace/object[@cname='GtkPlug']/method[@name='GetEmbedded']" name="name">GetIsEmbedded</attr>
   <attr path="/api/namespace/object[@cname='GtkPrinter']/method[@name='AcceptsPdf']" name="name">GetAcceptsPdf</attr>
